@@ -15,9 +15,9 @@ const {
   jidDecode
 } = require('@whiskeysockets/baileys');
 
-const handleCommand = require('./case');
+const handleCommand = require('./dave');
 const config = require('./config');
-const { loadSettings } = require('./settingsManager');
+const { loadSettings } = require('./davesettingmanager');
 global.settings = loadSettings();
 
 const log = {
@@ -39,9 +39,9 @@ const credsPath = path.join(sessionDir, 'creds.json');
 async function saveSessionFromConfig() {
   try {
     if (!config.SESSION_ID) return false;
-    if (!config.SESSION_ID.includes('venom~')) return false;
+    if (!config.SESSION_ID.includes('dave~')) return false;
 
-    const base64Data = config.SESSION_ID.split("venom~")[1];
+    const base64Data = config.SESSION_ID.split("dave~")[1];
     if (!base64Data) return false;
 
     const sessionData = Buffer.from(base64Data, 'base64');
@@ -120,12 +120,12 @@ setTimeout(async () => {
   const axios = require("axios");
   const ownerJid = `${botNumber}@s.whatsapp.net`;
   const message = `
-venom-ULTRA
- Connected: 
- Developer: venom 
- Version: Ultra
- ${botNumber}
+*>> VENOM-XMD <<*
 
+*>> Connected:* 
+*>> Developer:* 𝘿𝙖𝙫𝙚
+*>> Version:* 2:0:0
+*>> Number:* ${botNumber}
 `;
 
   try {
@@ -496,7 +496,7 @@ async function tylor() {
       return;
     }
 
-    if (config.SESSION_ID && config.SESSION_ID.includes("venom~")) {
+    if (config.SESSION_ID && config.SESSION_ID.includes("dave~")) {
       const ok = await saveSessionFromConfig();
       if (ok) {
         console.log(chalk.greenBright("Session ID loaded and saved successfully. Starting bot..."));
