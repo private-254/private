@@ -1,14 +1,4 @@
-/*
-> Recode script give credits to›
-Giddy Tennor(venom)
 
- | Created By venom
- | Base Ori By venom 
- |Credits Putrazy Xd
- |Chat wa:254104245659
- |Github: gifteddevsmd 
- |Email: giddytennor@gmail.com
-*/
 
 const fs = require('fs');
 const fg = require('api-dylux');
@@ -22,7 +12,7 @@ const path = require('path');
 const chalk = require('chalk');
 const os = require('os');
 const { writeFile } = require('./davelib/utils');
-const { saveSettings,loadSettings } = require('./settingsManager');
+const { saveSettings,loadSettings } = require('./davesettingmanager.js');
 const { fetchJson } = require('./davelib/fetch'); 
 // =============== COLORS ===============
 const colors = {
@@ -260,7 +250,7 @@ function detectPlatform() {
     case "linux":
       return "Linux";
     default:
-      return "Unknown";
+      return "Dave-host";
   }
 }
 
@@ -272,18 +262,20 @@ if (!venom.isPublic && !isOwner) {
         switch (command) {
             // ================= PING =================
             case 'ping':
-            case 'alive': {
-                const start = Date.now();
-                await reply(" Pinging...");
-                const end = Date.now();
-                const latency = end - start;
-                await reply(`Pong!
- Latency: ${latency}ms
-Uptime: ${formatUptime(process.uptime())}
- Owner: venom`);
-                break;
-            }
+case 'alive': {
+    const start = Date.now();
+    const sent = await venom.sendMessage(m.chat, { text: 'Checking connection...' }, { quoted: m });
+    const end = Date.now();
+    const latency = end - start;
 
+    const newText = `
+→ venom-xmd online
+→ Speed: ${latency}ms
+`;
+
+    await venom.sendMessage(m.chat, { text: newText, edit: sent.key }, { quoted: m });
+    break;
+}
             // ================= MENU =================
 case 'menu':
 case 'help': {
@@ -318,129 +310,353 @@ case 'help': {
   const totalUsers = users.length;
   const host = detectPlatform(); 
   const menuText = `
- *venom-xmd*
- Type: Multi Device
- Version: 3.0.0
- Module: Case
+ → 𝐯𝐞𝐧𝐨𝐦-𝐱𝐦𝐝
+┃ ✦ BotType  : *plugins+case*
+┃ ✦ Version  : *1.0.0*
+┃ ✦ Uptime   : *${uptimeFormatted}*
+┃ ✦ RAM      : *${ramUsage} MB*  
+┃ ✦ Users    : *${totalUsers}*
+┃ ✦ Commands : *${totalCommands}*
+┃ ✦ Host     : *${host}*
+┃ ✦ Mode     : *${global.settings.public ? 'Public' : 'Private'}*
+┗➤
 
- *Stats*
-• Uptime: ${uptimeFormatted}
-• RAM Usage: ${ramUsage} MB
-• Users: ${totalUsers}
-• Commands: ${totalCommands}
-• Server: ${host}
+*VENOM CONTROL*
+┣➤ ping
+┣➤ public
+┣➤allmenu 
+┣➤dave(menu)
+┣➤ private
+┣➤ autoread
+┣➤ autotyping
+┣➤ autorecord
+┣➤ checksettings
+┣➤ setdp
+┣➤ setprefix
+┣➤ setmenu
+┣➤ setmenuimage
+┣➤ setmenuvideo
+┣➤ antidelete
+┣➤setmenu
+┣➤ updatebot
+┣➤ gitclone
+┣➤ restart
+┣➤ block
+┣➤ unblock
+┣➤ backup
+┣➤ clearchat
+┣➤ listgc
+┣➤ listowner
+┣➤ onlygroup
+┣➤ onlypc
+┣➤ unavailable
+┣➤ anticall
+┣➤ autoreact charts
+┣➤ setpp
+┣➤ disp-1
+┣➤ disp-7
+┣➤ disp-90
+┣➤ disp-off
+┣➤ vv
+┗➤ addowner
 
-|COMMANDS|
+*OWNER MANAGEMENT*
+┣➤ join
+┣➤ addowner
+┣➤ delowner
+┣➤ setnamabot
+┣➤ setbiobot
+┣➤ setppbot
+┣➤ delppbot
+┗➤ listowner
 
- SYSTEM
-• ping 
-• public 
-• private 
-• autoread 
-• autorecord 
-• autotyping 
-• checksettings 
-• setdp
-• setmenu
-• setmenuimage
-• setmenuvideo
-• setprefix
-• antidelete 
-• menu2
-• updatebot 
+*GROUP MANAGEMENT*
+┣➤ add
+┣➤ kick
+┣➤ promote
+┣➤ demote
+┣➤ setdesc
+┣➤ setppgc
+┣➤ tagall
+┣➤ hidetag
+┣➤ group
+┣➤ linkgc
+┣➤ revoke
+┣➤ listonline
+┣➤ welcome
+┣➤ antilink
+┣➤ antilinkgc
+┣➤ warning
+┣➤ unwarning
+┣➤ kill
+┣➤ close
+┣➤ open
+┣➤ closetime
+┣➤ opentime
+┣➤ vcf
+┗➤ vcf2
 
- ANALYSIS 
-• weather 
-• checktime 
-• gitclone 
-• repo
-• fact
-• claude-al
-• gitstalk
-• ssweb
-• whois
-• scan
-• catphotos 
-• wormgpt 
+*ANALYSIS TOOLS*
+┣➤ weather
+┣➤ checktime
+┣➤ repo
+┣➤ fact
+┣➤ claude-ai
+┣➤ gitstalk
+┣➤ ssweb
+┣➤ whois
+┣➤ scan
+┣➤ catphotos
+┣➤ wormgpt
+┣➤ myip
+┣➤ trackip
+┣➤ ocr
+┣➤ trt
+┣➤ profile
+┗➤ githubstalk
 
- MEDIA
-• tiktok
-• play
-• song 
-• igdl
-• fb
-• video 
-• ytmp3 
-• playdoc
-• mediafire 
-• waifu
+*MEDIA DOWNLOAD*
+┣➤ tiktok
+┣➤ play
+┣➤ song
+┣➤ igdl
+┣➤ fb
+┣➤ video
+┣➤ ytmp3
+┣➤ ytmp4
+┣➤ playdoc
+┣➤ mediafire
+┣➤ snackvideo
+┣➤ capcut
+┣➤ apk
+┣➤ instagram
+┗➤ gitclone
 
- GROUP
-• add
-• kick
-• promote 
-• demote
-• antilink
-• antitag
-• antipromote 
-• antidemote 
-• antibadword 
-• tagall
-• hidetag
-• mute
-• unmute
-• setwelcome 
-• setgoodbye 
-• listactive 
-• listinactive 
+*AI & CHATGPT*
+┣➤ ai
+┣➤ ai2
+┣➤ gpt
+┣➤ gemma
+┣➤ mistral
+┣➤ gemini
+┣➤ luminai
+┣➤ openai
+┣➤ dave
+┣➤ imagebing
+┣➤ edit-ai
+┣➤ toanime
+┣➤ toreal
+┣➤ remove-wm
+┣➤ editanime
+┣➤ faceblur
+┗➤ removebg
 
- CONVERSION
-• toaudio 
-• tovoicenote 
-• toimage
-• fast
-• slow
-• bass
-• deep
-• fancy
-• sticker 
-• tourl
-• tovideo 
-• readtext
+*CONVERSION TOOLS*
+┣➤ toaudio
+┣➤ tovoicenote
+┣➤ toimage
+┣➤ fast
+┣➤ slow
+┣➤ bass
+┣➤ deep
+┣➤ fancy
+┣➤ tourl
+┣➤ tovideo
+┣➤ readtext
+┣➤ take
+┣➤ togif
+┣➤ tourl2
+┣➤ toqr
+┣➤ emojimix
+┣➤ hd
+┣➤ remini
+┣➤ hdvideo
+┗➤ readmore
 
- DEVELOPER 
-• addcase
-• addfile
-• delcase
-• delfile
-• restart 
-• getcase 
-• getdep
+*SEARCH TOOLS*
+┣➤ pinterest
+┣➤ yts
+┣➤ lyrics
+┣➤ dictionary
+┣➤ google
+┣➤ playstore
+┣➤ playstation
+┣➤ animesearch
+┣➤ whatsong
+┣➤ getpastebin
+┣➤ getpp
+┣➤ movie
+┣➤ fixtures
+┣➤ epl
+┣➤ laliga
+┣➤ bundesliga
+┣➤ serie-a
+┗➤ ligue-1
 
- BASIC
-• copilot
-• cat
-• vv
-• eval
-• enc
-• exec
-• ls
-• >
-• <
-• =>
+*EMAIL & UTILITIES*
+┣➤ sendemail
+┣➤ tempmail
+┣➤ reactch
+┣➤ idch
+┣➤ uploadstatus
+┣➤ save
+┣➤ viewonce
+┗➤ rvo
+
+*FUN & MEMES*
+┣➤ trash
+┣➤ wanted
+┣➤ hitler
+┣➤ meme
+┣➤ trigger
+┣➤ wasted
+┣➤ truth
+┣➤ dare
+┣➤ brat
+┣➤ neko
+┣➤ shinobu
+┣➤ megumin
+┣➤ bully
+┣➤ cuddle
+┣➤ cry
+┣➤ hug
+┣➤ awoo
+┣➤ kiss
+┣➤ lick
+┣➤ pat
+┣➤ smug
+┣➤ bonk
+┣➤ yeet
+┣➤ blush
+┣➤ smile
+┣➤ wave
+┣➤ highfive
+┣➤ handhold
+┣➤ nom
+┣➤ bite
+┣➤ glomp
+┣➤ slap
+┣➤ kill
+┣➤ happy
+┣➤ wink
+┣➤ poke
+┣➤ dance
+┣➤ cringe
+┣➤ trap
+┣➤ blowjob
+┣➤ hentai
+┣➤ boobs
+┣➤ ass
+┣➤ pussy
+┣➤ thighs
+┣➤ lesbian
+┣➤ lewdneko
+┣➤ cum
+┣➤ woof
+┣➤ 8ball
+┣➤ goose
+┣➤ gecg
+┣➤ feed
+┣➤ avatar
+┣➤ fox_girl
+┣➤ lizard
+┣➤ spank
+┣➤ meow
+┣➤ tickle
+┣➤ waifu
+┗➤ cat
+
+*BUG TOOLS*
+┣➤ daveandroid
+┣➤ daveandroid2
+┣➤ systemuicrash
+┣➤ xsysui
+┣➤ xios
+┣➤ xios2
+┗➤ dave-group
+
+*TEXT EFFECTS & LOGOS*
+┣➤ glitchtext
+┣➤ writetext
+┣➤ advancedglow
+┣➤ blackpinklogo
+┣➤ effectclouds
+┣➤ galaxystyle
+┣➤ lighteffect
+┣➤ sandsummer
+┣➤ underwater
+┣➤ glossysilver
+┣➤ typographytext
+┣➤ pixelglitch
+┣➤ neonglitch
+┣➤ flagtext
+┣➤ flag3dtext
+┣➤ deletingtext
+┣➤ blackpinkstyle
+┣➤ glowingtext
+┣➤ underwatertext
+┣➤ logomaker
+┣➤ cartoonstyle
+┣➤ papercutstyle
+┣➤ watercolortext
+┣➤ gradienttext
+┣➤ summerbeach
+┣➤ luxurygold
+┣➤ multicoloredneon
+┣➤ galaxywallpaper
+┣➤ 1917style
+┣➤ makingneon
+┣➤ royaltext
+┗➤ freecreate
+
+*SPAM & TOOLS*
+┣➤ nglspam
+┣➤ sendchat
+
+*DEVELOPER TOOLS*
+┣➤ addcase
+┣➤ addfile
+┣➤ delcase
+┣➤ delfile
+┣➤ getcase
+┣➤ getdep
+┣➤ getfile
+┣➤ setvar
+┣➤ getvar
+┣➤ update
+┣➤ enc
+┣➤ tojs
+┣➤ listcase
+┣➤ pair
+┣➤ eval
+┣➤ exec
+┣➤ ls
+┣➤ copilot
+┗➤ vv
+
+*MAIN MENU*
+┣➤ menu
+┣➤ buypremium
+┣➤ runtime
+┣➤ script
+┣➤ donate
+┣➤ owner
+┣➤ dev
+┣➤ request
+┣➤ Quran
+┗➤ Bible
 `;
-
   // Send based on selected mode
 if (mode === 'text') {
   await venom.sendMessage(from, { text: stylishReply(menuText) }, { quoted: m });
 } else if (mode === 'image') {
   await venom.sendMessage(from, {
-    image: { url: imageUrl || 'https://url.bwmxmd.online/Adams.tnn0fm6w.jpg' },
+    image: { url: imageUrl || 'https://o.uguu.se/ggDdhmHu.jpg' },
     caption: stylishReply(menuText)
   }, { quoted: m });
 } else if (mode === 'video') {
   await venom.sendMessage(from, {
-    video: { url: videoUrl || 'https://url.bwmxmd.online/Adams.wp4n244r.mp4' },
+    video: { url: videoUrl || 'https://files.catbox.moe/pfcowa.mp4' },
     caption: stylishReply(menuText),
     gifPlayback: true
   }, { quoted: m });
@@ -504,13 +720,13 @@ Current types:
 
   fs.writeFileSync(settingsFile, JSON.stringify({ mode: type }, null, 2));
 
-  await reply(` Menu display updated successfully!\nNew mode: *${type.toUpperCase()}*`);
+  await reply(` Your Menu display updated successfully!\nNew mode: *${type.toUpperCase()}*`);
   break;
 }
 
 // ================= SETMENU IMAGE=================
 case 'setmenuimage': {
-  if (!isOwner) return reply(" Owner-only command!");
+  if (!isOwner) return reply(" bitch command for my owner only!");
 
   const fs = require('fs');
   const path = require('path');
@@ -531,12 +747,12 @@ case 'setmenuimage': {
   settings.imageUrl = url;
   fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
 
-  await reply(` Menu image updated successfully!\n New Image: ${url}`);
+  await reply(` Your Menu image updated successfully!\n New Image: ${url}`);
   break;
 }
  // =================SET VIDEO MENU=================
 case 'setmenuvideo': {
-  if (!isOwner) return reply(" Owner-only command!");
+  if (!isOwner) return reply(" bitch command for my owner only!");
 
   const fs = require('fs');
   const path = require('path');
@@ -671,7 +887,7 @@ const fs = require('fs');
 
 // ================= UPDATE =================
 case 'updatebot': {
-  if (!isOwner) return reply(" Owner-only command!");
+  if (!isOwner) return reply(" Wtf🫩command for my owner bitch!");
   const { exec } = require('child_process');
   const fs = require('fs');
   const path = require('path');
@@ -894,8 +1110,8 @@ case 'encrypt': {
       minify: true,
       flatten: true,
       identifierGenerator: function () {
-        const originalString = "素GIDDY晴TENNOR晴" + "素GIDDY晴TENNOR晴";
-        const removeUnwantedChars = (input) => input.replace(/[^a-zA-Z素GIDDY晴TENNOR晴]/g, "");
+        const originalString = "素GIFTED晴DAVE晴" + "素GIFTED晴DAVE晴";
+        const removeUnwantedChars = (input) => input.replace(/[^a-zA-Z素GIFTED晴DAVE晴]/g, "");
         const randomString = (length) => {
           let result = "";
           const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -950,12 +1166,12 @@ case 'antidelete': {
     global.antiDeleteEnabled = true;
     const antiDeleteModule = require('./antiDelete');
     if (antiDeleteModule.saveState) antiDeleteModule.saveState(true);
-    reply(' AntiDelete has been *enabled*! Deleted messages will now be recovered.');
+    reply(' *antidelete enabled successfully!*.');
   } else if (text.toLowerCase() === 'off') {
     global.antiDeleteEnabled = false;
     const antiDeleteModule = require('./antiDelete');
     if (antiDeleteModule.saveState) antiDeleteModule.saveState(false);
-    reply(' AntiDelete has been *disabled*! Deleted messages will no longer be recovered.');
+    reply(' *antidelete disabled successfully deleted messages wont  be recovered.*');
   } else {
     reply(' Invalid option.\nUse `.antidelete on` or `.antidelete off`');
   }
@@ -1080,7 +1296,7 @@ case 'ls': {
 }
 // ================= CLEAR CACHE=================
 case 'clearcache': {
-  if (!isOwner) return reply(" Owner-only command!");
+  if (!isOwner) return reply(" only my approved owner can execute this command you go for the free bots!");
 
   const fs = require("fs");
   const path = require("path");
@@ -1199,7 +1415,7 @@ if (!isOwner) return reply(' Only the bot owner can use this command.');
 case 'repo': {
     const axios = require('axios');
     const owner = "gifteddevsmd";
-    const repo = "venom Bot";
+    const repo = "VENOM-XMD";
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}`;
     const collabUrl = `https://api.github.com/repos/${owner}/${repo}/collaborators`;
 
@@ -1214,11 +1430,11 @@ case 'repo': {
             const collabRes = await axios.get(collabUrl, { headers: { "User-Agent": "venomBot" } });
             collabCount = collabRes.data.length;
         } catch {
-            collabCount = "Private/Hidden";
+            collabCount = "I work on this thing alone bitch!";
         }
 
         const msg = `
-〔 * venom ULTRA REPO* 〕
+〔 * venom-xmd repo* 〕
   Repository: ${data.html_url}
 
   Stars: ${data.stargazers_count}
@@ -1232,7 +1448,7 @@ case 'repo': {
 
   Language: ${data.language || "Unknown"}
 
-  Description: "venom multiple device (ultra)."}
+  Description: "venom here bitches greatest of all bots."}
 
 `;
 
@@ -1386,8 +1602,8 @@ case 'tourl': {
             deviceListMetadataVersion: 2
           },
           interactiveMessage: {
-            body: { text: ` *Upload Successful!*\n\n URL: ${url}` },
-            footer: { text: " Uploaded by TrashBot" },
+            body: { text: `_your upload was Successful!_\n\n URL: ${url}` },
+            footer: { text: "venom here bitches" },
             nativeFlowMessage: {
               buttons: [
                 {
@@ -1844,7 +2060,7 @@ case 'setdp': {
     //  Cleanup
     fs.unlinkSync(tempFile);
 
-    reply(" Bot profile picture updated!");
+    reply(" profile pic updated successfully!");
   } catch (err) {
     console.error(" setdp error:", err);
     reply(" Failed to update bot profile picture.");
@@ -2243,7 +2459,7 @@ case 'checksettings': {
         case "win32": return "Windows";
         case "darwin": return "macOS";
         case "linux": return "Linux";
-        default: return "Unknown";
+        default: return "Dave-host";
       }
     };
 
@@ -2394,7 +2610,7 @@ Last updated: ${new Date().toLocaleString()}
                         return reply(` Error: ${res.error}`);
                     }
 
-                    await venom.sendMessage(from, { text: stylishReply(" Media found! Downloading now...") }, { quoted: m });
+                    await venom.sendMessage(from, { text: stylishReply(" I found it hold! dropping it famn...") }, { quoted: m });
 
                     if (res.type === "video") {
                         await venom.sendMessage(from, { video: { url: res.media }, caption: stylishReply(` Downloaded video from ${res.platform}!`) }, { quoted: m });
@@ -2407,7 +2623,7 @@ Last updated: ${new Date().toLocaleString()}
                 } catch (error) {
                     console.error(error);
                     await venom.sendMessage(from, { react: { text: "", key: m.key } });
-                    return reply(" Failed to get media.");
+                    return reply(" I did not get media check apis or try another video and am not sorry blame developer.");
                 }
                 break;
             }
@@ -2544,14 +2760,14 @@ case 'video': {
     break;
 }
 
-case 'menu2':
-case 'help2': {
+case 'dave':
+case 'allmenu': {
   const { generateWAMessageContent, generateWAMessageFromContent } = require('@whiskeysockets/baileys');
 
   try {
     const categories = [
       {
-        title: " SYSTEM",
+        title: " VENOM CONTROL",
         desc: `• ping
 • public 
 • private 
@@ -2563,27 +2779,89 @@ case 'help2': {
 • setmenu
 • setmenuimage
 • setmenuvideo
-• setprefix`,
-        button: { text: "𝐓𝐑𝐀𝐒𝐇", url: "https://youtube.com/@giddytennor?si=7pf4DxuDSI142BEW" },
-        image: "https://url.bwmxmd.online/Adams.tnn0fm6w.jpg"
+• setprefix
+• antidelete
+• updatebot
+• connectmessage
+• welcomemessage
+• inboxmessage
+• gitclone
+• restart
+• shutdown
+• block
+• clearchat`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
       },
       {
-        title: " ANALYSIS",
+        title: " OWNER MANAGEMENT",
+        desc: `• join
+• addowner
+• delowner
+• setnamabot
+• setbiobot
+• listowner
+• unavailable
+• disp-1
+• disp-7
+• disp-90
+• disp-off
+• vv`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
+      },
+      {
+        title: " GROUP MANAGEMENT",
+        desc: `• add
+• kick
+• promote 
+• demote
+• setdesc
+• setppgc
+• tagall
+• hidetag
+• group
+• linkgc
+• revoke
+• listonline
+• welcome
+• antilink
+• warning
+• unwarning
+• kill
+• close
+• open
+• closetime
+• opentime
+• vcf
+• vcf2`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
+      },
+      {
+        title: " ANALYSIS TOOLS",
         desc: `• weather 
 • checktime 
 • gitclone 
 • repo
 • fact
-• claude-al
+• claude-ai
 • gitstalk
 • ssweb
 • whois
-• scan`,
-        button: { text: "𝐓𝐑𝐀𝐒𝐇", url: "https://youtube.com/@giddytennor?si=7pf4DxuDSI142BEW" },
-        image: "https://url.bwmxmd.online/Adams.tnn0fm6w.jpg"
+• scan
+• catphotos
+• wormgpt
+• trackip
+• ocr
+• trt
+• profile
+• githubstalk`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
       },
       {
-        title: " MEDIA",
+        title: " MEDIA DOWNLOAD",
         desc: `• tiktok
 • play
 • song 
@@ -2591,61 +2869,263 @@ case 'help2': {
 • fb
 • video 
 • ytmp3 
+• ytmp4
 • playdoc
-• mediafire`,
-        button: { text: "𝐓𝐑𝐀𝐒𝐇", url: "https://youtube.com/@giddytennor?si=7pf4DxuDSI142BEW" },
-        image: "https://url.bwmxmd.online/Adams.tnn0fm6w.jpg"
+• mediafire
+• snackvideo
+• capcut
+• apk
+• instagram
+• gitclone`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
       },
       {
-        title: " GROUP",
-        desc: `• add
-• kick
-• promote 
-• demote
-• antilink
-• antitag
-• antipromote 
-• antidemote 
-• antibadword 
-• tagall
-• hidetag
-• mute
-• unmute`,
-        button: { text: "𝐓𝐑𝐀𝐒𝐇", url: "https://youtube.com/@giddytennor?si=7pf4DxuDSI142BEW" },
-        image: "https://url.bwmxmd.online/Adams.tnn0fm6w.jpg"
+        title: " AI & CHATGPT",
+        desc: `• ai
+• ai2
+• gpt
+• gemma
+• mistral
+• gemini
+• luminai
+• openai
+• dave
+• imagebing
+• edit-ai
+• toanime
+• toreal
+• remove-wm
+• editanime
+• faceblur
+• removebg`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
       },
       {
-        title: " CONVERSION",
+        title: " CONVERSION TOOLS",
         desc: `• toaudio 
 • tovoicenote 
-• toimage`,
-        button: { text: "𝐓𝐑𝐀𝐒𝐇", url: "https://youtube.com/@giddytennor?si=7pf4DxuDSI142BEW" },
-        image: "https://url.bwmxmd.online/Adams.tnn0fm6w.jpg"
+• toimage
+• fast
+• slow
+• bass
+• deep
+• fancy
+• tourl
+• tovideo
+• readtext
+• take
+• togif
+• tourl2
+• toqr
+• emojimix
+• hd
+• remini
+• hdvideo
+• readmore`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
       },
       {
-        title: " DEVELOPER",
+        title: " SEARCH TOOLS",
+        desc: `• pinterest
+• yts
+• lyrics
+• dictionary
+• google
+• playstore
+• playstation
+• animesearch
+• whatsong
+• getpastebin
+• getpp
+• movie
+• fixtures
+• epl
+• laliga
+• bundesliga
+• serie-a
+• ligue-1`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
+      },
+      {
+        title: " EMAIL & UTILITIES",
+        desc: `• sendemail
+• tempmail
+• reactch
+• idch
+• uploadstatus
+• save
+• viewonce
+• rvo`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
+      },
+      {
+        title: " FUN & MEMES",
+        desc: `• 𝘿𝙖𝙫𝙚𝘼𝙄
+• wanted
+• hitler
+• meme
+• trigger
+• wasted
+• truth
+• dare
+• brat
+• neko
+• shinobu
+• megumin
+• bully
+• cuddle
+• cry
+• hug
+• awoo
+• kiss
+• lick
+• pat
+• smug
+• bonk
+• yeet
+• blush
+• smile
+• wave
+• highfive
+• handhold
+• nom
+• bite
+• glomp
+• slap
+• kill
+• happy
+• wink
+• poke
+• dance
+• cringe
+• trap
+• blowjob
+• hentai
+• boobs
+• ass
+• pussy
+• thighs
+• lesbian
+• lewdneko
+• cum
+• woof
+• 8ball
+• goose
+• gecg
+• feed
+• avatar
+• fox_girl
+• lizard
+• spank
+• meow
+• tickle
+• waifu
+• cat`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
+      },
+      {
+        title: " BUG TOOLS",
+        desc: `• daveandroid
+• daveandroid2
+• systemuicrash
+• xsysui
+• xios
+• xios2
+• dave-group`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
+      },
+      {
+        title: " TEXT EFFECTS & LOGOS",
+        desc: `• glitchtext
+• writetext
+• advancedglow
+• blackpinklogo
+• effectclouds
+• galaxystyle
+• lighteffect
+• sandsummer
+• underwater
+• glossysilver
+• typographytext
+• pixelglitch
+• neonglitch
+• flagtext
+• flag3dtext
+• deletingtext
+• blackpinkstyle
+• glowingtext
+• underwatertext
+• logomaker
+• cartoonstyle
+• papercutstyle
+• watercolortext
+• gradienttext
+• summerbeach
+• luxurygold
+• multicoloredneon
+• galaxywallpaper
+• 1917style
+• makingneon
+• royaltext
+• freecreate`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
+      },
+      {
+        title: " SPAM & TOOLS",
+        desc: `• nglspam
+• sendchat`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
+      },
+      {
+        title: " DEVELOPER TOOLS",
         desc: `• addcase
 • addfile
 • delcase
 • delfile
-• restart`,
-        button: { text: "𝐓𝐑𝐀𝐒𝐇", url: "https://youtube.com/@giddytennor?si=7pf4DxuDSI142BEW" },
-        image: "https://url.bwmxmd.online/Adams.tnn0fm6w.jpg"
+• restart
+• getcase
+• getdep
+• getfile
+• setvar
+• getvar
+• update
+• enc
+• tojs
+• listcase
+• pair
+• eval
+• exec
+• ls
+• copilot
+• vv`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
       },
       {
-        title: " BASIC",
-        desc: `• copilot
-• cat
-• getcase 
-• ls
-• >
-• <
-• =>`,
-        button: { text: "𝐓𝐑𝐀𝐒𝐇", url: "https://youtube.com/@giddytennor?si=7pf4DxuDSI142BEW" },
-        image: "https://url.bwmxmd.online/Adams.tnn0fm6w.jpg"
+        title: " MAIN MENU",
+        desc: `• menu
+• buypremium
+• runtime
+• script
+• donate
+• owner
+• dev
+• request
+• Quran
+• Bible`,
+        button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
+        image: "https://o.uguu.se/ggDdhmHu.jpg"
       }
     ];
-
     //  Generate carousel cards with CTA buttons
     const carouselCards = await Promise.all(
       categories.map(async (item, index) => {
@@ -2691,8 +3171,8 @@ case 'help2': {
               deviceListMetadataVersion: 2
             },
             interactiveMessage: {
-              body: { text: " *venom MAIN MENU* " },
-              footer: { text: "Swipe  to explore all commands" },
+              body: { text: " *VENOM-XMD MAIN MENU* " },
+              footer: { text: "Swipe  to explore all commands thickheaded" },
               carouselMessage: { cards: carouselCards }
             }
           }
@@ -3381,7 +3861,7 @@ const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(
 const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
     if (!isGroup) return reply(" This command only works in groups!");
      if (!isAdmin) return reply("You must be an admin first to execute this command!")     
-     if (!isOwner) return reply(" Only the bot owner can toggle antilink!");
+     if (!isOwner) return reply(" Only the bot owner can antilink use antilink command idiot!");
     const option = args[0]?.toLowerCase();
     const mode = args[1]?.toLowerCase() || "delete";
 
@@ -3589,7 +4069,7 @@ const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(
 const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
     if (!isGroup) return reply(" This command only works in groups!");
      if (!isAdmin) return reply("You must be an admin first to execute this command!")     
-        if (!isOwner) return reply(" Only the owner can use this command!");
+        if (!isOwner) return reply(" Only the owner can use this command dm 254104260236 to get😆one broke asf!");
     const option = args[0]?.toLowerCase();
     const mode = args[1]?.toLowerCase() || "delete";
 
@@ -3719,9 +4199,9 @@ const groupMeta = isGroup ? await venom.groupMetadata(from) : null;
 const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(p => p.id) : [];
 const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
   try {
-    if (!isGroup) return reply(" This command only works in groups!");
-     if (!isAdmin) return reply("You must be an admin first to execute this command!")     
-            if (!isOwner) return reply(" Only admins or the owner can use this command!");
+    if (!isGroup) return reply(" This command only works in groups lone wolf!");
+     if (!isAdmin) return reply("You must be an admin first to execute this command go beg for it!")     
+            if (!isOwner) return reply(" Only admins or the owner can use this command bribe for promotion 😆!");
     const option = args[0]?.toLowerCase();
     const groupId = from;
 
@@ -3735,7 +4215,7 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
         warnings: {}
       };
       saveSettings(global.settings);
-      return reply(" *AntiBadword enabled for this group!*");
+      return reply(" *AntiBadword enabled for this group be aware those dirty mouthed bitches!*");
     }
 
     if (option === "off") {
@@ -3751,7 +4231,7 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
         global.settings.antibadword[groupId] || { enabled: true, words: [], warnings: {} };
       global.settings.antibadword[groupId].words.push(word);
       saveSettings(global.settings);
-      return reply(` Added bad word: This word is not allowed by group members from now`);
+      return reply(` Added bad word: This word is not allowed in this group by members from now learn it or perish`);
     }
 
     if (option === "remove") {
@@ -3847,8 +4327,8 @@ if (!isAdmin) return reply("You must be an admin first to execute this command!"
 
 // --- HIDETAG COMMAND ---
 case 'hidetag': {
-    if (!isGroup) return reply(' This command can only be used in groups!');
-    if (!args || args.length === 0) return reply(' Please provide a message to hidetag!');
+    if (!isGroup) return reply(' This command can only be used in groups mehn fuck!');
+    if (!args || args.length === 0) return reply(' Please provide a message to hidetag or give your girlfriend attention!');
 
     try {
         const groupMeta = await venom.groupMetadata(from);
@@ -3872,7 +4352,7 @@ case 'everyone':
     const groupMeta = await venom.groupMetadata(from);
     const participants = groupMeta.participants.map(p => p.id);
 
-    let messageText = ` Tagging everyone in the group!\n\n`;
+    let messageText = ` venom just tagged everyone in the group!\n\n`;
     participants.forEach((p, i) => {
         messageText += `• @${p.split('@')[0]}\n`;
     });
@@ -3889,8 +4369,8 @@ case 'remove': {
 const groupMeta = isGroup ? await venom.groupMetadata(from) : null;
 const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(p => p.id) : [];
 const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
-    if (!isGroup) return reply(" This command can only be used in groups!");
-  if (!isAdmin) return reply("You must be an admin first to execute this command!")     
+    if (!isGroup) return reply(" command meant for groups loner!");
+  if (!isAdmin) return reply("bro you must be an admin to use this command stop disturbing my peace fucker!")     
     if (!isBotAdmins) return reply(" I need admin privileges to remove members!");
 
     //  Identify target user
@@ -3901,10 +4381,10 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
         target = m.quoted.sender;
     } else if (args[0]) {
         const number = args[0].replace(/[^0-9]/g, '');
-        if (!number) return reply(` Example:\n${command} 254712345678`);
+        if (!number) return reply(` Example:\n${command} 254104260236`);
         target = `${number}@s.whatsapp.net`;
     } else {
-        return reply(` Example:\n${command} 254712345678`);
+        return reply(` Example:\n${command} 254104260236`);
     }
 
     //  Protect owner & bot
@@ -3912,8 +4392,8 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
     const ownerNumber = (config.OWNER_NUMBER || '').replace(/[^0-9]/g, '');
     const ownerJid = ownerNumber ? `${ownerNumber}@s.whatsapp.net` : '';
 
-    if (target === botNumber) return reply(" I can’t remove myself!");
-    if (target === ownerJid) return reply(" You can’t remove my owner!");
+    if (target === botNumber) return reply(" why that hate I can’t remove myself bitch period!");
+    if (target === ownerJid) return reply(" You can’t remove my owner you must be crazy!");
 
     try {
         // Add a timeout wrapper
@@ -3925,7 +4405,7 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
         if (result && !result[0]?.status) {
             await reply(` Successfully removed @${target.split('@')[0]}`, { mentions: [target] });
         } else {
-            reply(" Couldn’t remove this user. Maybe they’re the group creator.");
+            reply(" failed to remove this user maybe they own the group bitch period .");
         }
 
     } catch (err) {
@@ -3933,7 +4413,7 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
             reply(" WhatsApp took too long to respond. Try again in a few seconds.");
         } else {
             console.error("Kick Error:", err);
-            reply(" Failed to remove member. Possibly due to permission issues or socket lag.");
+            reply(" Failed to kick user.");
         }
     }
 
@@ -3946,7 +4426,7 @@ const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(
 const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
     try {
         if (!m.isGroup) return m.reply(" This command only works in groups!");
- if (!isAdmin) return reply("You must be an admin first to execute this command!")     
+ if (!isAdmin) return reply("You need admin privileges to execute this command!")     
         const groupMetadata = await venom.groupMetadata(m.chat);
         const participants = groupMetadata.participants;
 
@@ -3960,7 +4440,7 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
 
         const isSenderAdmin = groupAdmins.includes(senderNumber);
             if (!isAdmin && !isOwner) return reply(" Only admins or the owner can use this command!");
-    if (!isBotAdmins) return reply(" I need admin privileges to remove members!");
+    if (!isBotAdmins) return reply("make venom an admin first!");
 
         // Get target user (from mention or quoted)
         let target;
@@ -3980,7 +4460,7 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
 
         const userName = participants.find(p => p.id === target)?.notify || target.split('@')[0];
         await venom.sendMessage(m.chat, {
-            text: ` *${userName}* has been promoted to admin! `
+            text: ` *${userName}* has been promoted to admin successfully! `
         }, { quoted: m });
 
     } catch (error) {
@@ -4055,7 +4535,7 @@ case 'copilot': {
         if (data?.result?.text) {
             await reply(data.result.text);
         } else {
-            await reply(" Failed to get a response from the AI.");
+            await reply(" i failed to get response from copilot bitch.");
         }
 
     } catch (err) {
@@ -4215,7 +4695,7 @@ case 'sticker': {
     fs.unlinkSync(webpPath);
   } catch (err) {
     console.error(" sticker error:", err);
-    reply(` Failed to create sticker:\n${err.message}`);
+    reply(` sticker creation failed:\n${err.message}`);
   }
   break;
 }
