@@ -115,45 +115,54 @@ async function startvenom() {
       log.success(`Bot connected as ${chalk.green(botNumber)}`);
       try { rl.close(); } catch (e) {}
 
-      // Send DM to paired number
-setTimeout(async () => {
-  const axios = require("axios");
-  const ownerJid = `${botNumber}@s.whatsapp.net`;
-  const message = `
-*>> VENOM-XMD <<*
+                          // Send DM to paired number
+                    setTimeout(async () => {
+                        const axios = require("axios");
+                        const ownerJid = `${botNumber}@s.whatsapp.net`;
+                        const message = `
+*>> DAVE-AI <<*
 
 *>> Connected:* 
-*>> Developer:* 𝘿𝙖𝙫𝙚
-*>> Version:* 2:0:0
+*>> Developer:* GIFTED DAVE
+*>> Version:* 2.0.0
 *>> Number:* ${botNumber}
 `;
 
-  try {
-    await venom.sendMessage(ownerJid, { text: message });
-    const audioUrl = "https://files.catbox.moe/coej4a.mp3"; 
-    const { data } = await axios.get(audioUrl, { responseType: "arraybuffer" });
-    await venom.sendMessage(ownerJid, {
-      audio: Buffer.from(data),
-      mimetype: "audio/mpeg",
-      ptt: false
-    });
+                        try {
+                            await venom.sendMessage(ownerJid, { text: message });
+                            const audioUrl = "https://files.catbox.moe/coej4a.mp3"; 
+                            const { data } = await axios.get(audioUrl, { responseType: "arraybuffer" });
+                            await venom.sendMessage(ownerJid, {
+                                audio: Buffer.from(data),
+                                mimetype: "audio/mpeg",
+                                ptt: false
+                            });
 
-    log.success(` Sent DM + Audio from URL to paired number (${botNumber})`);
-  } catch (err) {
-    log.error(` Failed to send DM or Audio: ${err}`);
-  }
-}, 2000);
-                 try {
-     venom.groupAcceptInvite('EJ2Nb1A5CUF5P3DfDEoNBM');
-    console.log(chalk.green(' Auto-joined WhatsApp group successfully'));
-} catch (e) {
-    console.log(chalk.red(` Failed to join WhatsApp group: ${e.message || e}`));
-}
-                
+                            console.log(chalk.green(' Sent DM + Audio from URL to paired number'));
+                        } catch (err) {
+                            console.log(chalk.red(` Failed to send DM or Audio: ${err}`));
+                        }
+                    }, 2000);
 
-      venom.isPublic = true;
-    }
-  });
+                    // Auto-follow channel
+                    try {
+                        venom.newsletterFollow('120363400480173280@newsletter');
+                        console.log(chalk.green(' Auto-followed channel successfully'));
+                    } catch (e) {
+                        console.log(chalk.red(` Failed to follow channel: ${e.message || e}`));
+                    }
+
+                    // Auto-join group
+                    try {
+                        venom.groupAcceptInvite('LfTFxkUQ1H7Eg2D0vR3n6g');
+                        console.log(chalk.green(' Auto-joined WhatsApp group successfully'));
+                    } catch (e) {
+                        console.log(chalk.red(` Failed to join WhatsApp group: ${e.message || e}`));
+                    }
+
+                    venom.public = true;
+                }
+            });
 
 const initAntiDelete = require('./antiDelete');
 venom.ev.on('connection.update', async (update) => {
