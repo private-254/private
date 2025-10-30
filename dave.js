@@ -261,21 +261,88 @@ if (!venom.isPublic && !isOwner) {
     try {
         switch (command) {
             // ================= PING =================
-            case 'ping':
-case 'alive': {
+            case 'ping': {
     const start = Date.now();
     const sent = await venom.sendMessage(m.chat, { text: 'Checking connection...' }, { quoted: m });
-    const end = Date.now();
-    const latency = end - start;
+    const latency = Date.now() - start;
 
-    const newText = `
-→ venom-xmd online
-→ Speed: ${latency}ms
-`;
-
-    await venom.sendMessage(m.chat, { text: newText, edit: sent.key }, { quoted: m });
+    await venom.sendMessage(m.chat, { text: `venom-xmd → Speed: ${latency}ms`, edit: sent.key }, { quoted: m });
     break;
 }
+				case 'alive':
+				case 'runtime':
+case 'uptime': {
+    const axios = require('axios');
+    const os = require('os');
+    const packageJson = require('./package.json');
+    const start = Date.now();
+
+    // Temporary "checking" message
+    const temp = await venom.sendMessage(m.chat, { text: 'Checking bot status...' }, { quoted: m });
+
+    const latency = Date.now() - start;
+    const uptime = process.uptime();
+    const uptimeString = new Date(uptime * 1000).toISOString().substr(11, 8);
+
+    // Simple motivational quote
+    let quoteText = "Success is earned, not given.";
+    let quoteAuthor = "Anonymous";
+    const quotes = [
+        { q: "Dream big and dare to fail.", a: "Norman Vaughan" },
+        { q: "Every day is a second chance.", a: "Unknown" },
+        { q: "Hard work beats talent when talent doesn't work hard.", a: "Tim Notke" },
+        { q: "Do something today that your future self will thank you for.", a: "Unknown" },
+        { q: "Strive for progress, not perfection.", a: "Unknown" }
+    ];
+    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+    quoteText = randomQuote.q;
+    quoteAuthor = randomQuote.a;
+
+    // Random thumbnail
+    const thumbnails = [
+        "https://files.catbox.moe/00vqy4.jpg",
+        "https://files.catbox.moe/9xccze.jpg",
+        "https://files.catbox.moe/gbzodf.jpg",
+        "https://files.catbox.moe/vclvso.jpg",
+        "https://files.catbox.moe/6dcjfv.jpg",
+        "https://files.catbox.moe/ruq73j.jpg",
+        "https://files.catbox.moe/v46fyx.jpg"
+    ];
+    const thumb = thumbnails[Math.floor(Math.random() * thumbnails.length)];
+
+    // Bot info
+    const botName = "venom-xmd";
+    const botVersion = packageJson.version || "2.0.0";
+    const ownerName = "Gifted-Dave";
+
+    // Build message
+    const msg = `
+┏━━⟪ ${botName} STATUSCHECK ⟫━━┓
+┃ Owner: ${ownerName}
+┃ Version: ${botVersion}
+┃ Uptime: ${uptimeString}
+┃ Ping: ${latency}ms
+┃ Platform: ${os.platform()}
+┣━━━ QUOTE OF THE DAY ━━━┫
+┃ "${quoteText}"
+┃ — ${quoteAuthor}
+┗━━━━━━━━━━━━━━━━━━━━┛
+`;
+
+    // Send final status
+    await venom.sendMessage(
+        m.chat,
+        {
+            image: { url: thumb },
+            caption: msg,
+            footer: `${botName} • venom-xmd is always wet than your dry girlfriend`,
+        },
+        { quoted: m }
+    );
+
+    break;
+		}
+				
             // ================= MENU =================
 case 'menu':
 case 'help': {
@@ -1159,7 +1226,7 @@ case 'encrypt': {
 }
             // ================= ANTIDELETE =================
 case 'antidelete': {
-  if (!isOwner) return reply(' Only the bot owner can use this command.');
+  if (!isOwner) return reply(' Only the bot owner can use this command bitch.');
   if (!text) return reply(' Usage:\n.antidelete on / off');
 
   if (text.toLowerCase() === 'on') {
@@ -2466,7 +2533,7 @@ case 'checksettings': {
     const hostPlatform = detectPlatform();
 
     const summary = `
- *BOT SETTINGS STATUS* 
+ *venom-xmd settings status* 
 
  *Anti Features:*
 • Antilink: ${countEnabled(settings.antilink)} group(s)
@@ -3718,10 +3785,10 @@ case 'tovoicenote': {
     fs.unlinkSync(inputPath);
     fs.unlinkSync(outputPath);
 
-    reply(" Voice note sent!");
+    reply(" Voice note sent successfully!");
   } catch (err) {
     console.error(" tovoicenote error:", err);
-    reply(" Failed to convert media to voice note. Ensure it is a valid video/audio file.");
+    reply("_Failed to convert media to voice note. Ensure it is a valid video/audio file._");
   }
   break;
 }
@@ -3732,37 +3799,43 @@ case 'toimage': {
     const fs = require('fs');
     const path = require('path');
     const { tmpdir } = require('os');
-    const sharp = require('sharp');
+    const webp = require('webp-converter');
 
-    //  Get sticker message
+    // Get sticker message
     const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     const stickerMsg = (quotedMsg && quotedMsg.stickerMessage) || m.message?.stickerMessage;
 
     if (!stickerMsg || !stickerMsg.mimetype?.includes('webp')) {
-      return reply(" Reply to a *sticker* to convert it to an image!");
+      return reply("_Reply to a sticker to convert it to an image!_");
     }
 
-    m.reply(" Converting sticker to image...");
+    m.reply("Converting your sticker to image hold...");
 
-    //  Download sticker
+    // Download sticker
     const stream = await downloadContentFromMessage(stickerMsg, 'sticker');
     let buffer = Buffer.from([]);
     for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
 
-    //  Convert WebP to PNG using sharp
-    const outputPath = path.join(tmpdir(), `sticker_${Date.now()}.png`);
-    await sharp(buffer).png().toFile(outputPath);
+    // Save temp WebP file
+    const webpPath = path.join(tmpdir(), `sticker_${Date.now()}.webp`);
+    fs.writeFileSync(webpPath, buffer);
 
-    //  Send converted image
-    const imageBuffer = fs.readFileSync(outputPath);
-    await venom.sendMessage(from, { image: imageBuffer }, { quoted: m });
+    // Convert WebP to PNG
+    const pngPath = webpPath.replace('.webp', '.png');
+    await webp.dwebp(webpPath, pngPath, "-o"); // webp-converter method
 
-    //  Cleanup
-    fs.unlinkSync(outputPath);
-    reply(" Sticker converted to image!");
+    // Send converted image
+    const imageBuffer = fs.readFileSync(pngPath);
+    await trashcore.sendMessage(from, { image: imageBuffer }, { quoted: m });
+
+    // Cleanup
+    fs.unlinkSync(webpPath);
+    fs.unlinkSync(pngPath);
+
+    reply("Sticker successfully converted to image!");
   } catch (err) {
-    console.error(" toimage error:", err);
-    reply(" Failed to convert sticker to image.");
+    console.error("unexpected error:", err);
+    reply("*failed to convert sticker to image.*");
   }
   break;
 }
@@ -3874,7 +3947,7 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
     if (option === "on") {
       global.settings.antilink[groupId] = { enabled: true, mode };
       saveSettings(global.settings);
-      return reply(` *Antilink enabled!*\nMode: ${mode.toUpperCase()}\nLinks will be ${mode === "kick" ? "deleted and user kicked" : "deleted"}.`);
+      return reply(` *antilink enabled!*\nMode: ${mode.toUpperCase()}\nLinks will be ${mode === "kick" ? "deleted and user kicked" : "deleted"}.`);
     }
 
     if (option === "off") {
@@ -3924,7 +3997,7 @@ case 'autorecord': {
     if (option === 'off') {
       global.settings.autorecord.enabled = false;
       saveSettings(global.settings);
-      return reply(" *Autorecord disabled!* The bot will no longer show recording presence.");
+      return reply(" *Autorecording disabled!* The bot will no longer show recording presence.");
     }
 
     //  Show current status
@@ -4081,7 +4154,7 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
     if (option === "on") {
       global.settings.antitag[groupId] = { enabled: true, mode };
       saveSettings(global.settings);
-      return reply(` *AntiTag enabled!*\nMode: ${mode.toUpperCase()}\nMessages with tags will be ${mode === "kick" ? "deleted and user kicked" : "deleted"}.`);
+      return reply(` *Antitag enabled!*\nMode: ${mode.toUpperCase()}\nMessages with tags will be ${mode === "kick" ? "deleted and user kicked" : "deleted"}.`);
     }
 
     if (option === "off") {
@@ -4089,13 +4162,13 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
         delete global.settings.antitag[groupId];
         saveSettings(global.settings);
       }
-      return reply(" *AntiTag disabled for this group.*");
+      return reply(" *Antitag disabled for this group let the weak tag.*");
     }
 
     // Show current status
     const current = global.settings.antitag[groupId];
     reply(
-      ` *AntiTag Settings for This Group*\n\n` +
+      ` *antitag Settings for the Group*\n\n` +
       `• Status: ${current?.enabled ? " ON" : " OFF"}\n` +
       `• Mode: ${current?.mode?.toUpperCase() || "DELETE"}\n\n` +
       ` Usage:\n` +
@@ -4352,7 +4425,7 @@ case 'everyone':
     const groupMeta = await venom.groupMetadata(from);
     const participants = groupMeta.participants.map(p => p.id);
 
-    let messageText = ` venom just tagged everyone in the group!\n\n`;
+    let messageText = ` venom just tagged everyone in the group lol!\n\n`;
     participants.forEach((p, i) => {
         messageText += `• @${p.split('@')[0]}\n`;
     });
