@@ -11,9 +11,9 @@ const {
   fetchLatestBaileysVersion,
   makeInMemoryStore,
   downloadContentFromMessage,
-  jidDecode
+  jidDecode,
+  jidNormalizedUser
 } = require('@whiskeysockets/baileys');
-
 const handleCommand = require('./dave');
 const config = require('./config');
 const { loadSettings } = require('./davesettingmanager');
@@ -66,7 +66,7 @@ async function starttrashcore() {
   const trashcore = makeWASocket({
     version,
     logger: pino({ level: "silent" }),
-    printQRInTerminal: !pairingCode,
+    printQRInTerminal: false,
     browser: ["Ubuntu", "Chrome", "122.0.0.0"],
     auth: {
       creds: state.creds,
