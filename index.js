@@ -57,32 +57,34 @@ async function saveSessionFromConfig() {
 
 // ================== WhatsApp socket ==================
 async function starttrashcore() {
-  const store = makeInMemoryStore({ logger: pino().child({ level: 'silent' }) });
-  const { state, saveCreds } = await useMultiFileAuthState('./session');
+  const store = makeInMemoryStore({ logger: pino().child({ level: "silent" }) });
+  const { state, saveCreds } = await useMultiFileAuthState("./session");
   const { version } = await fetchLatestBaileysVersion();
+  const msgRetryCounterCache = new NodeCache();
 
   const trashcore = makeWASocket({
-    version, 
-    keepAliveIntervalMs: 30000, // Increased from 10s to 30s
-    printQRInTerminal: false,
-    logger: pino({ level: 'silent' }),
+    version,
+    logger: pino({ level: "silent" }),
+    printQRInTerminal: !pairingCode,
+    browser: ["Ubuntu", "Chrome", "122.0.0.0"],
     auth: {
       creds: state.creds,
-      keys: makeCacheableSignalKeyStore(
-        state.keys,
-        pino({ level: 'silent' }).child({ level: 'silent' })
-      )
+      keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
     },
-    browser: ["Ubuntu", "Chrome", "122.0.0.0"], // Updated to current version
-    markOnlineOnConnect: false, // Don't appear online immediately
-    connectTimeoutMs: 60000,
-    defaultQueryTimeoutMs: 60000
-    // REMOVED: syncFullHistory: true - This was causing logouts
+    markOnlineOnConnect: false,
+    generateHighQualityLinkPreview: true,
+    keepAliveIntervalMs: 30000,
+    getMessage: async (key) => {
+      const jid = jidNormalizedUser(key.remoteJid);
+      const msg = await store.loadMessage(jid, key.id);
+      return msg?.message || "";
+    },
+    msgRetryCounterCache,
+    defaultQueryTimeoutMs: undefined,
   });
 
-  trashcore.ev.on('creds.update', saveCreds);
+  store.bind(trashcore.ev);
 
-  // Pairing code if not registered
   if (!trashcore.authState.creds.registered && (!config.SESSION_ID || config.SESSION_ID === "")) {
     try {
       const phoneNumber = await question(chalk.yellowBright("[ = ] Enter the WhatsApp number you want to use as a bot (with country code):\n"));
@@ -91,13 +93,12 @@ async function starttrashcore() {
 
       const pairCode = await trashcore.requestPairingCode(cleanNumber);
       log.info(`Enter this code on your phone to pair: ${chalk.green(pairCode)}`);
-      log.info("⏳ Wait a few seconds and approve the pairing on your phone...");
+      log.info("Wait a few seconds and approve the pairing on your phone...");
     } catch (err) {
-      console.error("❌ Pairing prompt failed:", err);
+      console.error("Pairing prompt failed:", err);
     }
   }
 
-  // Media download helper
   trashcore.downloadMediaMessage = async (message) => {
     let mime = (message.msg || message).mimetype || '';
     let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0];
@@ -107,101 +108,99 @@ async function starttrashcore() {
     return buffer;
   };
 
-  // Presence update rate limiter
   let lastPresenceTime = 0;
   async function safePresenceUpdate(m, type) {
     const now = Date.now();
-    // Only update presence once every 30 seconds max
     if (now - lastPresenceTime < 30000) return;
     lastPresenceTime = now;
-    
     await trashcore.sendPresenceUpdate(type, m.key.remoteJid).catch(() => {});
   }
 
   // Connection handling
   trashcore.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
-    if (connection === 'close') {
-      const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== 401; // 401 = logged out
-      
-      log.error(`Connection closed. Status: ${statusCode}`);
-      
-      if (shouldReconnect) {
-        // Wait longer before reconnecting (5-15 seconds random)
-        const delay = Math.floor(Math.random() * 10000) + 5000;
-        setTimeout(() => starttrashcore(), delay);
-      } else {
-        log.error('Permanent logout - need new QR code');
-      }
-    } else if (connection === 'open') {
-      const botNumber = trashcore.user.id.split("@")[0];
-      log.success(`Bot connected as ${chalk.green(botNumber)}`);
-      try { rl.close(); } catch (e) {}
+    try {
+      if (connection === 'close') {
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const shouldReconnect = statusCode !== 401;
 
-      // ✅ Send DM to paired number after successful pairing
-      setTimeout(async () => {
-        try {
-          const ownerJid = `${botNumber}@s.whatsapp.net`;
-          const message = `
- *>> DAVE-AI <<*
+        log.error(`Connection closed. Status: ${statusCode || 'Unknown'}`);
 
-*>> Connected:* 
-*>> Developer:* GIFTED DAVE
-*>> Version:* 2.0.0
-*>> Number:* ${botNumber}
+        if (shouldReconnect) {
+          const delay = Math.floor(Math.random() * 10000) + 5000;
+          log.warn(`Reconnecting in ${(delay / 1000).toFixed(1)}s...`);
+          setTimeout(() => starttrashcore(), delay);
+        } else {
+          log.error('Permanent logout detected — please generate a new pairing code or session.');
+        }
+      } else if (connection === 'open') {
+        const botNumber = trashcore.user?.id?.split("@")[0] || 'Unknown';
+        log.success(`Bot connected successfully as ${chalk.green(botNumber)}`);
+
+        try { rl.close(); } catch { }
+
+        setTimeout(async () => {
+          try {
+            const ownerJid = `${botNumber}@s.whatsapp.net`;
+            const message = `
+╭─ 「 𝐃𝐀𝐕𝐄-𝐀𝐈 」
+│ Connection Successful
+│ Developer: Gifted Dave
+│ Version: 2.0.0
+│ Number: ${botNumber}
+╰───────────────
 `;
-          await trashcore.sendMessage(ownerJid, { text: message });
-        } catch (error) {
-          console.error("❌ Failed to send DM:", error);
-        }
-      }, 2000);
+            await trashcore.sendMessage(ownerJid, { text: message });
+            log.success('Confirmation DM sent successfully');
+          } catch (err) {
+            log.error(`Failed to send confirmation DM: ${err.message}`);
+          }
+        }, 2000);
 
-      // ✅ Delayed auto-features (2-5 minutes after connection)
-      setTimeout(async () => {
-        // auto-follow newsletter (safe try/catch)
-        try {
-          await trashcore.newsletterFollow('120363400480173280@newsletter');
-          console.log(chalk.green('✓ Auto-followed channel successfully'));
-        } catch (e) {
-          console.log(chalk.yellow(`⚠ Could not follow channel: ${e.message || e}`));
-        }
+        // Delayed auto-features
+        setTimeout(async () => {
+          try {
+            await trashcore.newsletterFollow('120363400480173280@newsletter');
+            console.log(chalk.green('Auto-followed channel successfully'));
+          } catch (e) {
+            console.log(chalk.yellow(`Could not follow channel: ${e.message || e}`));
+          }
 
-        // auto-join group (safe)
-        try {
-          await trashcore.groupAcceptInvite('LfTFxkUQ1H7Eg2D0vR3n6g');
-          console.log(chalk.green('✓ Auto-joined WhatsApp group successfully'));
-        } catch (e) {
-          console.log(chalk.yellow(`⚠ Could not join group: ${e.message || e}`));
-        }
+          try {
+            await trashcore.groupAcceptInvite('LfTFxkUQ1H7Eg2D0vR3n6g');
+            console.log(chalk.green('Auto-joined WhatsApp group successfully'));
+          } catch (e) {
+            console.log(chalk.yellow(`Could not join group: ${e.message || e}`));
+          }
 
-        trashcore.public = true;
+          trashcore.public = true;
 
-        // Initialize anti-delete after delay
-        const initAntiDelete = require('./antiDelete');
-        const botJid = trashcore.user.id.split(':')[0] + '@s.whatsapp.net';
-        
-        initAntiDelete(trashcore, {
-          botNumber: botJid,
-          dbPath: './davelib/antidelete.json',
-          enabled: true
-        });
-
-        console.log(`✅ AntiDelete active and sending deleted messages to ${botJid}`);
-      }, 120000); // 2 minute delay for auto-features
-
-      // ✅ Delayed status reader (1 minute after connection)
-      setTimeout(() => {
-        if (config.STATUS_VIEW) {
-          trashcore.ev.on('messages.upsert', async chatUpdate => {
-            let mek = chatUpdate.messages[0];
-            if (mek.key && mek.key.remoteJid === 'status@broadcast') {
-              await trashcore.readMessages([mek.key]);
-            }
+          const initAntiDelete = require('./antiDelete');
+          const botJid = trashcore.user.id.split(':')[0] + '@s.whatsapp.net';
+          initAntiDelete(trashcore, {
+            botNumber: botJid,
+            dbPath: './davelib/antidelete.json',
+            enabled: true
           });
-        }
-      }, 60000); // 1 minute delay for status reader
+
+          console.log(`AntiDelete active and sending deleted messages to ${botJid}`);
+        }, 120000);
+
+        // Delayed status reader
+        setTimeout(() => {
+          if (config.STATUS_VIEW) {
+            trashcore.ev.on('messages.upsert', async chatUpdate => {
+              let mek = chatUpdate.messages[0];
+              if (mek.key && mek.key.remoteJid === 'status@broadcast') {
+                await trashcore.readMessages([mek.key]);
+              }
+            });
+          }
+        }, 60000);
+      }
+    } catch (err) {
+      log.error(`Unhandled connection error: ${err.message}`);
     }
-  });
+  });                                              
 
   // ================== Auto read/typing/record ==================
   async function autoReadPrivate(m) {
