@@ -994,6 +994,563 @@ const fs = require('fs');
 }
 
 // ================= UPDATE =================
+
+
+case 'steal':
+case 'stickersteal':
+case 'stickertake':
+case 'wm': {
+    try {
+        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const fs = require('fs');
+        const path = require('path');
+        const { tmpdir } = require('os');
+        const { writeExifImg, writeExifVid } = require('./davelib/exif');
+
+        const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const stickerMsg = (quotedMsg && quotedMsg.stickerMessage) || m.message?.stickerMessage;
+
+        if (!stickerMsg || !stickerMsg.mimetype?.includes('webp')) {
+            return reply(` Reply to a *sticker* with caption:\n\n *${command} packname|author*`);
+        }
+
+        const [packname, author] = text
+            ? text.split('|').map((s) => s.trim())
+            : [config.PACK_NAME || 'venom Stickers', config.AUTHOR || 'venom'];
+
+        reply(' Taking ownership of sticker...');
+
+        // Download sticker buffer
+        const stream = await downloadContentFromMessage(stickerMsg, 'sticker');
+        let buffer = Buffer.from([]);
+        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+        const webpPath = await writeExifImg(buffer, {
+            packname: packname,
+            author: author,
+        });
+
+        const newSticker = fs.readFileSync(webpPath);
+        await venom.sendMessage(m.chat, { sticker: newSticker }, { quoted: m });
+
+        // Cleanup
+        fs.unlinkSync(webpPath);
+
+        reply(` Sticker rebranded!\n\n *Pack:* ${packname}\n *Author:* ${author}`);
+    } catch (err) {
+        console.error(' take error:', err);
+        reply(` Failed to take sticker:\n${err.message}`);
+    }
+    break;
+}
+
+case 'toimg':
+case 'getimage':
+case 'image': {
+    try {
+        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const fs = require('fs');
+        const path = require('path');
+        const { tmpdir } = require('os');
+        const webp = require('webp-converter');
+
+        const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const stickerMsg = (quotedMsg && quotedMsg.stickerMessage) || m.message?.stickerMessage;
+
+        if (!stickerMsg || !stickerMsg.mimetype?.includes('webp')) {
+            return reply("_Reply to a sticker to convert it to an image!_");
+        }
+
+        reply("Converting your sticker to image...");
+
+        // Download sticker
+        const stream = await downloadContentFromMessage(stickerMsg, 'sticker');
+        let buffer = Buffer.from([]);
+        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+        // Save temp WebP file
+        const webpPath = path.join(tmpdir(), `sticker_${Date.now()}.webp`);
+        fs.writeFileSync(webpPath, buffer);
+
+        // Convert WebP to PNG
+        const pngPath = webpPath.replace('.webp', '.png');
+        await webp.dwebp(webpPath, pngPath, "-o");
+
+        // Send converted image
+        const imageBuffer = fs.readFileSync(pngPath);
+        await venom.sendMessage(from, { image: imageBuffer }, { quoted: m });
+
+        // Cleanup
+        fs.unlinkSync(webpPath);
+        fs.unlinkSync(pngPath);
+
+        reply("Sticker successfully converted to image!");
+    } catch (err) {
+        console.error(" toimg error:", err);
+        reply("*Failed to convert sticker to image.*");
+    }
+    break;
+}
+
+case 'sticker':
+case 'stik':
+case 'st': {
+    try {
+        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const fs = require('fs');
+        const path = require('path');
+        const { tmpdir } = require('os');
+        const ffmpeg = require('fluent-ffmpeg');
+        const { imageToWebp, videoToWebp, writeExifImg, writeExifVid } = require('./davelib/exif');
+
+        const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const msg =
+            (quotedMsg && (quotedMsg.imageMessage || quotedMsg.videoMessage)) ||
+            m.message?.imageMessage ||
+            m.message?.videoMessage;
+
+        if (!msg) {
+            return reply(` Reply to an *image* or *video* with caption *${command}*\n\n *Max Video Duration:* 30 seconds`);
+        }
+
+        const mime = msg.mimetype || '';
+        if (!/image|video/.test(mime)) {
+            return reply(` Only works on *image* or *video* messages!`);
+        }
+
+        // Duration check
+        if (msg.videoMessage && msg.videoMessage.seconds > 30) {
+            return reply(" Maximum video duration is 30 seconds!");
+        }
+
+        reply(" Creating your sticker...");
+
+        // Download the media
+        const stream = await downloadContentFromMessage(msg, mime.split('/')[0]);
+        let buffer = Buffer.from([]);
+        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+        let webpPath;
+        if (/image/.test(mime)) {
+            webpPath = await writeExifImg(buffer, {
+                packname: config.PACK_NAME || "venom Stickers",
+                author: config.AUTHOR || "venom",
+            });
+        } else {
+            webpPath = await writeExifVid(buffer, {
+                packname: config.PACK_NAME || "venom Stickers",
+                author: config.AUTHOR || "venom",
+            });
+        }
+
+        // Read final webp buffer
+        const stickerBuffer = fs.readFileSync(webpPath);
+        await venom.sendMessage(m.chat, { sticker: stickerBuffer }, { quoted: m });
+
+        // Cleanup temp
+        fs.unlinkSync(webpPath);
+    } catch (err) {
+        console.error(" sticker error:", err);
+        reply(` sticker creation failed:\n${err.message}`);
+    }
+    break;
+}
+
+case 'write': {
+    try {
+        if (!text) return reply("Please enter some text");
+
+        const fs = require('fs');
+        const path = require('path');
+        const { tmpdir } = require('os');
+        const text2png = require('text2png');
+        const { writeExifImg } = require('./davelib/exif');
+
+        reply(" Creating text sticker...");
+
+        // Create text image
+        const textImage = text2png(text, {
+            font: '100px Arial',
+            color: 'black',
+            textAlign: 'center',
+            lineSpacing: 10,
+            strokeColor: 'white',
+            strokeWidth: 2,
+            padding: 20,
+            backgroundColor: 'white'
+        });
+
+        // Convert to sticker
+        const webpPath = await writeExifImg(textImage, {
+            packname: config.PACK_NAME || "venom Stickers", 
+            author: config.AUTHOR || "venom",
+        });
+
+        const stickerBuffer = fs.readFileSync(webpPath);
+        await venom.sendMessage(m.chat, { sticker: stickerBuffer }, { quoted: m });
+
+        // Cleanup
+        fs.unlinkSync(webpPath);
+
+        reply(" Text sticker created successfully!");
+    } catch (err) {
+        console.error(" write error:", err);
+        reply(" Failed to create text sticker.");
+    }
+    break;
+}
+
+
+
+case 'ai':
+case 'openai':
+case 'open-ai': {
+    try {
+        if (!text) {
+            return reply(`Hey, I'm venom-xmd virtual assistant 🤖\nUse: *${command} your message*`);
+        }
+
+        const logicPrompt = `You are venom AI — a helpful, intelligent, and cheerful assistant created by Gifted-Dave. You speak in clear, friendly English with a touch of personality 😄
+
+🧠 Personality Traits:
+- Kind, positive, and curious
+- Speaks like a helpful and fun companion
+- Uses emojis only when they add meaning (not too often)
+- Explains things simply and clearly
+- If someone is rude, respond with light sarcasm and wit 😏
+
+🗣️ Communication Style:
+- Be clear, warm, and supportive
+- Encourage users and make them feel comfortable
+- Avoid technical jargon unless asked for it
+- Use emojis where it helps express tone or clarity, not in every sentence
+
+🎯 Example tone:
+- "All done! Let me know if you need anything else 😊"
+- "Whoa, slow down there! Let's take it one step at a time."
+- "Uh-oh… looks like someone's having a rough day 😅"
+
+You are venom AI — a smart and friendly assistant who always makes the conversation better.`;
+
+        // Using the same AI API as your other AI commands
+        const axios = require('axios');
+        const api_key = "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";
+        const base_url = "https://openrouter.ai/api/v1";
+        const model = "deepseek/deepseek-v3.1-terminus";
+
+        const { data } = await axios.post(
+            `${base_url}/chat/completions`,
+            {
+                model,
+                messages: [
+                    {
+                        role: "system",
+                        content: logicPrompt
+                    },
+                    { role: "user", content: text }
+                ],
+                temperature: 0.7,
+                max_tokens: 1800,
+            },
+            {
+                headers: {
+                    "Authorization": `Bearer ${api_key}`,
+                    "Content-Type": "application/json",
+                },
+                timeout: 1000 * 60 * 10,
+            }
+        );
+
+        const answer = data?.choices?.[0]?.message?.content || "There is no valid response from AI.";
+        await reply(answer);
+
+    } catch (err) {
+        console.error("AI Command Error:", err);
+        await reply(" Failed to get a response from venom AI.");
+    }
+    break;
+}
+
+case 'chatbot':
+case 'simi': {
+    try {
+        if (!isOwner) return reply(" This command is for owner-only.");
+
+        const option = args[0]?.toLowerCase();
+
+        // Ensure global settings exist
+        global.settings = global.settings || { chatbot: { enabled: false } };
+
+        if (option === 'on') {
+            if (global.settings.chatbot.enabled) return reply(' Chatbot is already enabled!');
+            
+            global.settings.chatbot.enabled = true;
+            saveSettings(global.settings);
+            return reply(' Chatbot enabled!\n> Only works with reply message *when you reply to the bot number messages*');
+        }
+
+        if (option === 'off') {
+            if (!global.settings.chatbot.enabled) return reply(' Chatbot is already disabled!');
+            
+            global.settings.chatbot.enabled = false;
+            saveSettings(global.settings);
+            return reply(' Chatbot disabled!');
+        }
+
+        // Show current status
+        return reply(
+            ` *Chatbot Settings*\n\n` +
+            `• Status: ${global.settings.chatbot.enabled ? " ON" : " OFF"}\n\n` +
+            ` Usage:\n` +
+            `- ${command} on\n` +
+            `- ${command} off\n\n` +
+            `Note: Only works with reply messages when you reply to the bot number messages`
+        );
+
+    } catch (err) {
+        console.error("Chatbot Command Error:", err);
+        reply(" An error occurred while updating chatbot settings.");
+    }
+    break;
+}
+
+case 'imagine': {
+    try {
+        if (!text) return reply(" Please provide a prompt for image generation");
+
+        const axios = require('axios');
+        const url = `https://bk9.fun/ai/magicstudio?prompt=${encodeURIComponent(text)}`;
+
+        await reply(" Generating AI image...");
+
+        const response = await axios.get(url, { responseType: 'arraybuffer' });
+
+        await venom.sendMessage(from, { 
+            image: Buffer.from(response.data, 'binary'),
+            caption: ` *AI Generated Image*\n\nPrompt: ${text}`
+        }, { quoted: m });
+
+    } catch (err) {
+        console.error("Imagine Command Error:", err);
+        await reply(" An error occurred while generating the image.");
+    }
+    break;
+}
+
+case 'toaudio':
+case 'tomp3':
+case 'toaud': {
+    try {
+        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const ffmpeg = require('fluent-ffmpeg');
+        const fs = require('fs');
+        const { tmpdir } = require('os');
+        const path = require('path');
+
+        // Get the quoted media
+        const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const msg = (quotedMsg && (quotedMsg.videoMessage || quotedMsg.audioMessage)) ||
+                   m.message?.videoMessage ||
+                   m.message?.audioMessage;
+
+        if (!msg) return reply(" Reply to a *video* or *audio* message to convert to audio.");
+
+        const mime = msg.mimetype || '';
+        if (!/video|audio/.test(mime)) return reply(" The replied message is not a *video* or *audio*.");
+
+        reply(" Converting to audio...");
+
+        // Download media
+        const stream = await downloadContentFromMessage(msg, mime.split('/')[0]);
+        let buffer = Buffer.from([]);
+        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+        // Temp paths
+        const inputPath = path.join(tmpdir(), `input_${Date.now()}.mp4`);
+        const outputPath = path.join(tmpdir(), `output_${Date.now()}.mp3`);
+        fs.writeFileSync(inputPath, buffer);
+
+        // Convert to MP3
+        await new Promise((resolve, reject) => {
+            ffmpeg(inputPath)
+                .toFormat('mp3')
+                .on('end', resolve)
+                .on('error', reject)
+                .save(outputPath);
+        });
+
+        // Send converted audio
+        const audioBuffer = fs.readFileSync(outputPath);
+        await venom.sendMessage(m.chat, { 
+            audio: audioBuffer, 
+            mimetype: 'audio/mpeg',
+            ptt: false 
+        }, { quoted: m });
+
+        // Cleanup
+        fs.unlinkSync(inputPath);
+        fs.unlinkSync(outputPath);
+
+    } catch (err) {
+        console.error(" toaudio error:", err);
+        reply(" Failed to convert media to audio.");
+    }
+    break;
+}
+
+case 'tovn':
+case 'voicenote':
+case 'toptt': {
+    try {
+        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const ffmpeg = require('fluent-ffmpeg');
+        const fs = require('fs');
+        const path = require('path');
+        const { tmpdir } = require('os');
+
+        // Get media message
+        const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const msg = (quotedMsg && (quotedMsg.videoMessage || quotedMsg.audioMessage)) ||
+                   m.message?.videoMessage ||
+                   m.message?.audioMessage;
+
+        if (!msg) return reply(" Reply to a *video* or *audio* message to convert to voice note.");
+
+        const mime = msg.mimetype || '';
+        if (!/video|audio/.test(mime)) return reply(" The replied message is not a *video* or *audio*.");
+
+        reply(" Converting to voice note...");
+
+        // Download media
+        const messageType = mime.split("/")[0];
+        const stream = await downloadContentFromMessage(msg, messageType);
+        let buffer = Buffer.from([]);
+        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+        // Temp files
+        const inputPath = path.join(tmpdir(), `input_${Date.now()}.mp4`);
+        const outputPath = path.join(tmpdir(), `output_${Date.now()}.ogg`);
+        fs.writeFileSync(inputPath, buffer);
+
+        // Convert to PTT (Opus in OGG)
+        await new Promise((resolve, reject) => {
+            ffmpeg(inputPath)
+                .inputOptions('-t 59') // limit duration
+                .toFormat('opus')
+                .outputOptions(['-c:a libopus', '-b:a 64k'])
+                .on('end', resolve)
+                .on('error', reject)
+                .save(outputPath);
+        });
+
+        // Send as voice note
+        const audioBuffer = fs.readFileSync(outputPath);
+        await venom.sendMessage(m.chat, { 
+            audio: audioBuffer, 
+            mimetype: 'audio/ogg', 
+            ptt: true 
+        }, { quoted: m });
+
+        // Cleanup
+        fs.unlinkSync(inputPath);
+        fs.unlinkSync(outputPath);
+
+    } catch (err) {
+        console.error(" tovn error:", err);
+        reply(" Failed to convert media to voice note.");
+    }
+    break;
+}
+
+case 'bass':
+case 'blown':
+case 'deep':
+case 'earrape':
+case 'fast':
+case 'fat':
+case 'nightcore':
+case 'reverse':
+case 'robot':
+case 'slow':
+case 'smooth':
+case 'squirrel': {
+    try {
+        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const ffmpeg = require('fluent-ffmpeg');
+        const fs = require('fs');
+        const path = require('path');
+        const { tmpdir } = require('os');
+
+        // Get audio message
+        const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const msg = (quotedMsg && quotedMsg.audioMessage) || m.message?.audioMessage;
+
+        if (!msg) return reply(" Reply to an *audio* message to apply effects.");
+
+        const mime = msg.mimetype || '';
+        if (!/audio/.test(mime)) return reply(" The replied message is not an *audio*.");
+
+        // Set FFmpeg filters based on command
+        let filter = '';
+        switch (command) {
+            case 'bass': filter = '-af equalizer=f=54:width_type=o:width=2:g=20'; break;
+            case 'blown': filter = '-af acrusher=.1:1:64:0:log'; break;
+            case 'deep': filter = '-af atempo=4/4,asetrate=44500*2/3'; break;
+            case 'earrape': filter = '-af volume=12'; break;
+            case 'fast': filter = '-filter:a "atempo=1.63,asetrate=44100"'; break;
+            case 'fat': filter = '-filter:a "atempo=1.6,asetrate=22100"'; break;
+            case 'nightcore': filter = '-filter:a atempo=1.06,asetrate=44100*1.25'; break;
+            case 'reverse': filter = '-filter_complex "areverse"'; break;
+            case 'robot': filter = '-filter_complex "afftfilt=real=\'hypot(re,im)*sin(0)\':imag=\'hypot(re,im)*cos(0)\':win_size=512:overlap=0.75"'; break;
+            case 'slow': filter = '-filter:a "atempo=0.7,asetrate=44100"'; break;
+            case 'smooth': filter = '-filter:v "minterpolate=\'mi_mode=mci:mc_mode=aobmc:vsbmc=1:fps=120\'"'; break;
+            case 'squirrel': filter = '-filter:a "atempo=0.5,asetrate=65100"'; break;
+        }
+
+        reply(` Applying ${command} effect...`);
+
+        // Download audio
+        const stream = await downloadContentFromMessage(msg, 'audio');
+        let buffer = Buffer.from([]);
+        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+        // Temp paths
+        const inputPath = path.join(tmpdir(), `input_${Date.now()}.mp3`);
+        const outputPath = path.join(tmpdir(), `output_${Date.now()}.mp3`);
+        fs.writeFileSync(inputPath, buffer);
+
+        // Apply effect
+        await new Promise((resolve, reject) => {
+            ffmpeg(inputPath)
+                .audioFilters(filter)
+                .toFormat('mp3')
+                .on('end', resolve)
+                .on('error', reject)
+                .save(outputPath);
+        });
+
+        // Send processed audio
+        const audioBuffer = fs.readFileSync(outputPath);
+        await venom.sendMessage(m.chat, { 
+            audio: audioBuffer, 
+            mimetype: 'audio/mpeg',
+            ptt: false 
+        }, { quoted: m });
+
+        // Cleanup
+        fs.unlinkSync(inputPath);
+        fs.unlinkSync(outputPath);
+
+        reply(` ${command} effect applied successfully!`);
+
+    } catch (err) {
+        console.error(` ${command} error:`, err);
+        reply(` Failed to apply ${command} effect.`);
+    }
+    break;
+}
+
+
 case 'updatebot': {
   if (!isOwner) return reply(" Wtf🫩command for my owner bitch!");
   const { exec } = require('child_process');
