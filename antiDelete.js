@@ -189,7 +189,7 @@ module.exports = function initAntiDelete(venom, opts = {}) {
       const senderJid = saved.sender || 'unknown@s.whatsapp.net';
       const userTag = `@${senderJid.split('@')[0]}`;
       const mention = [senderJid];
-      const header = ` *Anti-Delete*\nChat: ${chatName}\nUser: ${userTag}`;
+      const header = ` *venom-Anti-Delete*\nChat: ${chatName}\nUser: ${userTag}`;
       const targetJid = botNumber;
 
       // TEXT MESSAGE
