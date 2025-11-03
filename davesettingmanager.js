@@ -12,8 +12,8 @@ function loadSettings() {
       autotyping: { enabled: false },
       antidelete: { enabled: true },
       
-      // Flat structure settings (as used in your bot file)
-      showConnectMsg: true,
+     
+      showConnectMsg: false,
       anticall: false,
       autoviewstatus: true,
       autoreactstatus: true,
