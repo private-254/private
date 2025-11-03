@@ -769,16 +769,16 @@ case 'inboxmessage': {
         const option = args[0]?.toLowerCase();
 
         //  Ensure global settings exist
-        global.settings = global.settings || { connectmessage: { enabled: false } };
+        global.settings = global.settings || { showConnectMsg: true };
 
         if (option === 'on') {
-            global.settings.connectmessage.enabled = true;
+            global.settings.showConnectMsg = true;
             saveSettings(global.settings);
             return reply(" *Connection messages enabled!* The bot will now show connection messages.");
         }
 
         if (option === 'off') {
-            global.settings.connectmessage.enabled = false;
+            global.settings.showConnectMsg = false;
             saveSettings(global.settings);
             return reply(" *Connection messages disabled!* The bot will no longer show connection messages.");
         }
@@ -786,7 +786,7 @@ case 'inboxmessage': {
         //  Show current status
         return reply(
             ` *Connection Messages Settings*\n\n` +
-            `• Status: ${global.settings.connectmessage.enabled ? " ON" : " OFF"}\n\n` +
+            `• Status: ${global.settings.showConnectMsg ? " ON" : " OFF"}\n\n` +
             ` Usage:\n` +
             `- ${command} on\n` +
             `- ${command} off`
