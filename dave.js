@@ -718,12 +718,12 @@ if (mode === 'text') {
   await venom.sendMessage(from, { text: stylishReply(menuText) }, { quoted: m });
 } else if (mode === 'image') {
   await venom.sendMessage(from, {
-    image: { url: imageUrl || 'https://o.uguu.se/ggDdhmHu.jpg' },
+    image: { url: imageUrl || 'https://n.uguu.se/HrdWierP.jpg' },
     caption: stylishReply(menuText)
   }, { quoted: m });
 } else if (mode === 'video') {
   await venom.sendMessage(from, {
-    video: { url: videoUrl || 'https://files.catbox.moe/pfcowa.mp4' },
+    video: { url: videoUrl || 'https://files.catbox.moe/kl9gn6.mp4' },
     caption: stylishReply(menuText),
     gifPlayback: true
   }, { quoted: m });
@@ -758,6 +758,47 @@ case 'setprefix': {
     }
     break;
 }
+
+				case 'welcomemessage':
+case 'connectmessage': 
+case 'inboxmessage': {
+    try {
+        //  Only bot owner can use this
+        if (!isOwner) return reply(" Only the bot owner can toggle connection messages!");
+
+        const option = args[0]?.toLowerCase();
+
+        //  Ensure global settings exist
+        global.settings = global.settings || { connectmessage: { enabled: false } };
+
+        if (option === 'on') {
+            global.settings.connectmessage.enabled = true;
+            saveSettings(global.settings);
+            return reply(" *Connection messages enabled!* The bot will now show connection messages.");
+        }
+
+        if (option === 'off') {
+            global.settings.connectmessage.enabled = false;
+            saveSettings(global.settings);
+            return reply(" *Connection messages disabled!* The bot will no longer show connection messages.");
+        }
+
+        //  Show current status
+        return reply(
+            ` *Connection Messages Settings*\n\n` +
+            `• Status: ${global.settings.connectmessage.enabled ? " ON" : " OFF"}\n\n` +
+            ` Usage:\n` +
+            `- ${command} on\n` +
+            `- ${command} off`
+        );
+
+    } catch (err) {
+        console.error("ConnectMessage Command Error:", err);
+        reply(" An error occurred while updating connection message settings.");
+    }
+    break;
+}
+				
 // ================= SET MENU =================
             case 'setmenu': {
   if (!isOwner) return reply(" Only the bot owner can use this command!");
