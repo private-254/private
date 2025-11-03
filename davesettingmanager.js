@@ -34,7 +34,7 @@ function loadSettings() {
       public: true,
       onlygroup: false,
       onlypc: false,
-      showConnectMsg: false
+      connectmessage: { enabled: true }  // Changed from showConnectMsg to nested structure
     }, null, 2));
   }
 
