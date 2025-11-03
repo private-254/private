@@ -6,9 +6,34 @@ const settingsPath = path.join(__dirname, 'davelib/settings.json');
 function loadSettings() {
   if (!fs.existsSync(settingsPath)) {
     fs.writeFileSync(settingsPath, JSON.stringify({
+      // Global bot settings
       autoread: { enabled: false },
       autorecord: { enabled: false },
       autotyping: { enabled: false },
+      public: true,
+      onlygroup: false,
+      onlypc: false,
+      
+      // Group protection settings (enabled per group)
+      antilink: {},
+      antitag: {},
+      antibadword: {},
+      antipromote: {},
+      antidemote: {},
+      antibot: {},
+      
+      // Auto-react settings
+      areact: {
+        enabled: false,
+        chats: {},
+        emojis: ["😂","🔥","😎","👍","💀","❤️","🤖","🥵","🙌","💯"],
+        mode: "random"
+      },
+      
+      // Warning system
+      warnings: { enabled: true, maxWarnings: 3, chats: {} },
+      
+      // Other settings from your dave.js
       autoviewstatus: true,
       autoreactstatus: true,
       welcome: false,
@@ -17,24 +42,8 @@ function loadSettings() {
       autobio: true,
       antidelete: { enabled: true },
       antilinkgc: { enabled: false },
-      antilink: { enabled: false },
-      antitag: {},
-      antibadword: {},
-      antipromote: { enabled: false, mode: "revert" },
-      antidemote: { enabled: false, mode: "revert" },
-      antibot: {},
-      areact: {
-        enabled: false,
-        chats: {},
-        emojis: ["😂","🔥","😎","👍","💀","❤️","🤖","🥵","🙌","💯"],
-        mode: "random"
-      },
-      warnings: { enabled: true, maxWarnings: 3, chats: {} },
-      online: true,
-      public: true,
-      onlygroup: false,
-      onlypc: false,
-      showConnectMsg: true
+      connectmessage: { enabled: true },
+      online: true
     }, null, 2));
   }
 
