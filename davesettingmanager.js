@@ -49,7 +49,7 @@ function loadSettings() {
 
       // Bot info for menu
       botName: "Dave AI",
-      ownername: "Dev-davs",
+      ownername: "Dev-dave",
       owner: ["254104260236"]
     }, null, 2));
   }
