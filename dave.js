@@ -112,10 +112,10 @@ if (m.message) {
   const hourInt = parseInt(hour, 10);
   const ucapanWaktu =
     hourInt < 12
-      ? "Good Morning "
+      ? "Good Morning😇 "
       : hourInt < 18
-      ? "Good Afternoon "
-      : "Good Evening ";
+      ? "Good Afternoon 💥"
+      : "Good Evening 🌚";
 
   //  Colors
   const headerColor = chalk.black.bold.bgHex("#ff5e78");  // Pink header
@@ -1564,8 +1564,203 @@ case 'squirrel': {
 }
 
 
-case 'update': {
-  if (!isOwner) return reply(" Wtf🫩command for my owner bitch!");
+case 'gpt': {
+  try {
+    const axios = require('axios');
+
+    if (!text) return reply("Please provide a question or prompt.\n\nExample:\n.gpt What is quantum computing?");
+
+    const apiUrl = `https://api.nekolabs.web.id/ai/cf/gpt-oss-120b?text=${encodeURIComponent(text)}`;
+    const { data } = await axios.get(apiUrl);
+
+    if (!data.success || !data.result) {
+      return reply("Could not get a response from the GPT API.");
+    }
+
+    // Handle both object and string results
+    const botReply =
+      typeof data.result === "string"
+        ? data.result
+        : JSON.stringify(data.result, null, 2);
+
+    await venom.sendMessage(from, {
+      text: `*GPT-OSS 120B says:*\n\n${botReply}`
+    }, { quoted: m });
+
+  } catch (err) {
+    console.error("gpt error:", err);
+    reply(`Error: ${err.message}`);
+  }
+  break;
+}
+// ================= LLAMA =================
+case 'llama': {
+  try {
+    const axios = require('axios');
+
+    if (!text) return reply("Please provide a question or prompt.\n\nExample:\n.llama What is artificial intelligence?");
+
+    const apiUrl = `https://api.nekolabs.web.id/ai/cf/llama-3.3-70b?text=${encodeURIComponent(text)}`;
+    const { data } = await axios.get(apiUrl);
+
+    if (!data.success || !data.result) {
+      return reply("Could not get a response from the LLaMA API.");
+    }
+
+    const botReply = data.result;
+
+    await venom.sendMessage(from, {
+      text: `*LLaMA 3.3 AI says:*\n\n${botReply}`
+    }, { quoted: m });
+
+  } catch (err) {
+    console.error("llama error:", err);
+    reply(`Error: ${err.message}`);
+  }
+  break;
+}
+// ================= QWEN-AL =================
+case 'qwen': {
+  try {
+    const axios = require('axios');
+
+    if (!text) return reply("Please provide a question or prompt.\n\nExample:\n.qwen Write a simple JavaScript function");
+
+    const apiUrl = `https://api.nekolabs.web.id/ai/cf/qwen-2.5-coder-32b?text=${encodeURIComponent(text)}`;
+
+    const { data } = await axios.get(apiUrl);
+
+    if (!data.success || !data.result) {
+      return reply("Could not get a valid response from Qwen API.");
+    }
+
+    await venom.sendMessage(from, { text: `*QWEN AI Response:*\n\n${data.result}` }, { quoted: m });
+
+  } catch (err) {
+    console.error("qwen error:", err);
+    reply(`Error: ${err.message}`);
+  }
+  break;
+}
+// ================= XVIDEOS =================
+case 'xvideos': {
+  try {
+    const axios = require('axios');
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+
+    if (!text) return reply("Please provide an xvideos URL.\n\nExample:\n.xvideos https://www.xvideos.com/video123456");
+
+    const apiUrl = `https://api.nekolabs.web.id/downloader/xvideos?url=${encodeURIComponent(text)}`;
+    const { data } = await axios.get(apiUrl);
+
+    if (!data.success || !data.result?.videos) {
+      return reply("Failed to fetch video info from API.");
+    }
+
+    const videoUrl = data.result.videos.high || data.result.videos.low;
+    if (!videoUrl) return reply("Could not find a downloadable video link.");
+
+    const thumb = data.result.thumb;
+
+    // Temporary file path
+    const tmpFile = path.join(os.tmpdir(), `xvideos_${Date.now()}.mp4`);
+
+    // Download the video
+    const response = await axios({
+      url: videoUrl,
+      method: 'GET',
+      responseType: 'stream'
+    });
+
+    const writer = fs.createWriteStream(tmpFile);
+    response.data.pipe(writer);
+
+    await new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+
+    // Send video
+    await venom.sendMessage(from, {
+      video: fs.readFileSync(tmpFile),
+      caption: `*VENOM XXX DOWNLOADER*\n\nSource: xvideos.com\nEnjoy your video!`,
+      mimetype: 'video/mp4',
+      thumbnail: { url: thumb }
+    }, { quoted: m });
+
+    // Delete temporary file
+    fs.unlinkSync(tmpFile);
+
+  } catch (err) {
+    console.error("xvideos error:", err);
+    reply(`Error: ${err.message}`);
+  }
+  break;
+}
+// ================= PINDL =================
+case 'pindl': {
+  try {
+    const axios = require("axios");
+    if (!args[0]) return reply('*Example :* .pindl https://pin.it/57IghwKl0');
+
+    const url = args[0];
+
+    // Function to fetch Pin media
+    async function anakbaik(url) {
+      try {
+        const { data } = await axios.get(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile Safari/604.1"
+          },
+          maxRedirects: 5
+        });
+
+        const video = data.match(/"contentUrl":"(https:\/\/v1\.pinimg\.com\/videos\/[^\"]+\.mp4)"/);
+        const image = data.match(/"imageSpec_736x":\{"url":"(https:\/\/i\.pinimg\.com\/736x\/[^\"]+\.(?:jpg|jpeg|png|webp))"/) 
+                      || data.match(/"imageSpec_564x":\{"url":"(https:\/\/i\.pinimg\.com\/564x\/[^\"]+\.(?:jpg|jpeg|png|webp))"/);
+        const thumb = data.match(/"thumbnail":"(https:\/\/i\.pinimg\.com\/videos\/thumbnails\/originals\/[^\"]+\.jpg)"/);
+        const title = data.match(/"name":"([^"]+)"/);
+        const author = data.match(/"fullName":"([^"]+)".+?"username":"([^"]+)"/);
+        const date = data.match(/"uploadDate":"([^"]+)"/);
+        const keyword = data.match(/"keywords":"([^"]+)"/);
+
+        return {
+          type: video ? "video" : "image",
+          title: title ? title[1] : "-",
+          author: author ? author[1] : "-",
+          username: author ? author[2] : "-",
+          media: video ? video[1] : image ? image[1] : "-",
+          thumbnail: thumb ? thumb[1] : "-",
+          uploadDate: date ? date[1] : "-",
+          keywords: keyword ? keyword[1].split(",").map(x => x.trim()) : []
+        };
+      } catch (e) {
+        return { error: e.message };
+      }
+    }
+
+    // Fetch the media
+    const res = await anakbaik(url);
+    if (res.error) return reply(`Error: ${res.error}`);
+
+    // Send video or image
+    if (res.type === 'video') {
+      await venom.sendMessage(from, { video: { url: res.media }, caption: `*${res.title}* by ${res.author}` }, { quoted: m });
+    } else {
+      await venom.sendMessage(from, { image: { url: res.media }, caption: `*${res.title}* by ${res.author}` }, { quoted: m });
+    }
+
+  } catch (err) {
+    console.error(err);
+    reply(`Error: ${err.message}`);
+  }
+  break;
+}
+// ================= UPDATE =================
+case 'updatebot': {
+  if (!isOwner) return reply("Owner-only command!");
   const { exec } = require('child_process');
   const fs = require('fs');
   const path = require('path');
@@ -1692,29 +1887,30 @@ case 'update': {
   };
 
   try {
-    await venom.sendMessage(m.chat, { text: "_Updating bot... please wait _" }, { quoted: m });
+    await venom.sendMessage(m.chat, { text: "_Updating bot... please wait_" }, { quoted: m });
     await venom.sendMessage(m.chat, { react: { text: '', key: m.key } });
 
     if (await hasGitRepo()) {
       const { oldRev, newRev, alreadyUpToDate } = await updateViaGit();
-      if (alreadyUpToDate) reply(" Already up to date!");
-      else reply(` Updated from ${oldRev}  ${newRev}`);
+      if (alreadyUpToDate) reply("Already up to date!");
+      else reply(`Updated from ${oldRev} → ${newRev}`);
       await run('npm install --no-audit --no-fund');
     } else {
       await updateViaZip();
-      reply(" ZIP update completed!");
+      reply("ZIP update completed!");
     }
 
-    await venom.sendMessage(m.chat, { text: "_Restarting bot... _" }, { quoted: m });
+    await venom.sendMessage(m.chat, { text: "_Restarting bot..._" }, { quoted: m });
     await venom.sendMessage(m.chat, { react: { text: '', key: m.key } });
     await restartProcess();
 
   } catch (err) {
     console.error("UpdateBot Error:", err);
-    reply(` Update failed:\n${err.message}`);
+    reply(`Update failed:\n${err.message}`);
   }
 }
 break;
+      
             // ================= PINTEREST =================
 case 'pinterest': {
   try {
