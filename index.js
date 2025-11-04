@@ -88,7 +88,8 @@ async function startDave() {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
     },
-    markOnlineOnConnect: true,
+    markOnlineOnConnect: false, // 🔒 CHANGED TO FALSE FOR STEALTH
+    syncFullHistory: false, // 🔒 ADDED FOR STEALTH
     generateHighQualityLinkPreview: true,
     getMessage: async (key) => {
       const jid = jidNormalizedUser(key.remoteJid);
@@ -97,6 +98,14 @@ async function startDave() {
     },
     msgRetryCounterCache,
     defaultQueryTimeoutMs: undefined,
+    // 🔒 ADDED STEALTH OPTIONS:
+    connectTimeoutMs: 60000,
+    keepAliveIntervalMs: 10000,
+    retryRequestDelayMs: 1000,
+    maxMsgRetryCount: 3,
+    emitOwnEvents: false,
+    fireInitQueries: false,
+    transactionOpts: { maxCommitRetries: 1 }
   });
 
   dave.public = true;
