@@ -344,7 +344,8 @@ case 'uptime': {
 		}
 				
             // ================= MENU =================
-case 'menu':
+
+  case 'menu':
 case 'help': {
   const fs = require('fs');
   const os = require('os');
@@ -352,7 +353,7 @@ case 'help': {
   const process = require('process');
 
   const settingsFile = path.join(__dirname, 'menuSettings.json');
-  
+
   // Ensure menu settings file exists with text mode as default
   if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(settingsFile, JSON.stringify({ mode: 'text' }, null, 2));
@@ -365,7 +366,7 @@ case 'help': {
   const videoUrl = menuSettings.videoUrl;
 
   // Get bot name from config/settings
-  const botName = config.BOT_NAME || global.settings?.botName || "Dave AI"; // Fallback to "Dave AI"
+  const botName = config.BOT_NAME || global.settings?.botName || "VENOM-XMD"; // Fallback to "Dave AI"
 
   const usersFile = path.join(__dirname, 'davelib', 'users.json');
   if (!fs.existsSync(usersFile)) fs.writeFileSync(usersFile, JSON.stringify([]));
@@ -385,7 +386,7 @@ case 'help': {
   const ramUsage = (process.memoryUsage().rss / 1024 / 1024).toFixed(2);
   const totalUsers = users.length;
   const host = detectPlatform(); 
-  
+
   // Updated menu text with dynamic bot name
   const menuText = `
  → ${botName}
