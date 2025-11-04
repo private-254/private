@@ -352,11 +352,20 @@ case 'help': {
   const process = require('process');
 
   const settingsFile = path.join(__dirname, 'menuSettings.json');
+  
+  // Ensure menu settings file exists with text mode as default
   if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(settingsFile, JSON.stringify({ mode: 'text' }, null, 2));
   }
 
-  const { mode, imageUrl, videoUrl } = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+  // Get menu settings, default to text mode if not set
+  let menuSettings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+  const mode = menuSettings.mode || 'text'; // Default to text if not set
+  const imageUrl = menuSettings.imageUrl;
+  const videoUrl = menuSettings.videoUrl;
+
+  // Get bot name from config/settings
+  const botName = config.BOT_NAME || global.settings?.botName || "Dave AI"; // Fallback to "Dave AI"
 
   const usersFile = path.join(__dirname, 'davelib', 'users.json');
   if (!fs.existsSync(usersFile)) fs.writeFileSync(usersFile, JSON.stringify([]));
@@ -376,8 +385,10 @@ case 'help': {
   const ramUsage = (process.memoryUsage().rss / 1024 / 1024).toFixed(2);
   const totalUsers = users.length;
   const host = detectPlatform(); 
+  
+  // Updated menu text with dynamic bot name
   const menuText = `
- → 𝐯𝐞𝐧𝐨𝐦-𝐱𝐦𝐝
+ → ${botName}
 ┃ ✦ BotType  : *plugins+case*
 ┃ ✦ Version  : *1.0.0*
 ┃ ✦ Uptime   : *${uptimeFormatted}*
@@ -388,7 +399,7 @@ case 'help': {
 ┃ ✦ Mode     : *${global.settings.public ? 'Public' : 'Private'}*
 ┗➤
 
-*VENOM CONTROL*
+*${botName.toUpperCase()} CONTROL*
 ┣➤ ping
 ┣➤ public
 ┣➤allmenu 
@@ -713,25 +724,27 @@ case 'help': {
 ┣➤ Quran
 ┗➤ Bible
 `;
-  // Send based on selected mode
-if (mode === 'text') {
-  await venom.sendMessage(from, { text: stylishReply(menuText) }, { quoted: m });
-} else if (mode === 'image') {
-  await venom.sendMessage(from, {
-    image: { url: imageUrl || 'https://n.uguu.se/HrdWierP.jpg' },
-    caption: stylishReply(menuText)
-  }, { quoted: m });
-} else if (mode === 'video') {
-  await venom.sendMessage(from, {
-    video: { url: videoUrl || 'https://files.catbox.moe/kl9gn6.mp4' },
-    caption: stylishReply(menuText),
-    gifPlayback: true
-  }, { quoted: m });
-}
+
+  // Send based on selected mode - DEFAULT TO TEXT MODE
+  if (mode === 'text' || !mode) {
+    await venom.sendMessage(from, { text: stylishReply(menuText) }, { quoted: m });
+  } else if (mode === 'image') {
+    await venom.sendMessage(from, {
+      image: { url: imageUrl || 'https://n.uguu.se/HrdWierP.jpg' },
+      caption: stylishReply(menuText)
+    }, { quoted: m });
+  } else if (mode === 'video') {
+    await venom.sendMessage(from, {
+      video: { url: videoUrl || 'https://files.catbox.moe/kl9gn6.mp4' },
+      caption: stylishReply(menuText),
+      gifPlayback: true
+    }, { quoted: m });
+  }
 
   break;
 }
-   
+
+
 // ================= SETPREFIX =================
 case 'setprefix': {
     try {
