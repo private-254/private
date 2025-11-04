@@ -1563,7 +1563,7 @@ case 'squirrel': {
 }
 
 
-case 'updatebot': {
+case 'update': {
   if (!isOwner) return reply(" Wtf🫩command for my owner bitch!");
   const { exec } = require('child_process');
   const fs = require('fs');
@@ -3262,22 +3262,27 @@ case 'setdesc': {
     }
     break;
 }
-
 case 'setnamabot':
 case 'setbotname': {
     try {
-        if (!isOwner) return reply(" This command is for owner-only.");
-        if (!text) return reply(` Please provide a name\nExample: ${command} 𝘿𝙖𝙫𝙚𝘼𝙄`);
-        
+        if (!isOwner) return reply(" 🚫 This command is for owner-only.");
+        if (!text) return reply(` 📝 Please provide a name\nExample: .setnamabot 𝘿𝙖𝙫𝙚𝘼𝙄`);
+
+        // Update WhatsApp profile name
         await venom.updateProfileName(text);
-        reply(` Successfully changed the bot's profile name to *${text}*`);
+        
+        // Save bot name to global settings
+        global.settings.botName = text;
+        saveSettings(global.settings);
+
+        reply(` ✅ Successfully changed the bot's profile name to *${text}*\n\n📝 Bot name saved to settings for menu display`);
+        
     } catch (err) {
         console.error("SetBotName Command Error:", err);
         reply(" Failed to change bot name.");
     }
     break;
 }
-
 case 'save': {
     try {
         const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
