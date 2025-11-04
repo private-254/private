@@ -1094,7 +1094,7 @@ case 'image': {
 
 case 'sticker':
 case 'stik':
-case 'st': {
+case 's': {
     try {
         const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
         const fs = require('fs');
@@ -1399,7 +1399,6 @@ case 'toaud': {
 }
 
 case 'tovn':
-case 'voicenote':
 case 'toptt': {
     try {
         const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
@@ -2303,6 +2302,137 @@ case 'tourl': {
   break;
 }
 // =================TO VIDEO=================
+
+
+case 'url':
+case 'upload': {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const { tmpdir } = require('os');
+        const axios = require('axios');
+        const FormData = require('form-data');
+        const { downloadContentFromMessage, generateWAMessageFromContent } = require('@whiskeysockets/baileys');
+
+        // Detect quoted or direct media
+        const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const msg =
+            (quotedMsg && (quotedMsg.imageMessage || quotedMsg.videoMessage || quotedMsg.audioMessage || quotedMsg.documentMessage)) ||
+            m.message?.imageMessage ||
+            m.message?.videoMessage ||
+            m.message?.audioMessage ||
+            m.message?.documentMessage;
+
+        if (!msg) {
+            return reply(` Reply to an *image*, *video*, *audio*, or *document* with caption *${command}*`);
+        }
+
+        const mime = msg.mimetype || '';
+        if (!/image|video|audio|application/.test(mime)) {
+            return reply(` Only works on *image*, *video*, *audio*, or *document* messages!`);
+        }
+
+        // Optional duration check for long videos
+        if (msg.videoMessage && msg.videoMessage.seconds > 300) {
+            return reply(" Maximum video duration is *5 minutes*!");
+        }
+
+        reply(" Uploading media, please wait...");
+
+        // Download media
+        const stream = await downloadContentFromMessage(msg, mime.split('/')[0]);
+        let buffer = Buffer.from([]);
+        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+        // Save temporary file
+        const ext = mime.split('/')[1] || 'bin';
+        const tmpFile = path.join(tmpdir(), `upload_${Date.now()}.${ext}`);
+        fs.writeFileSync(tmpFile, buffer);
+
+        // Upload to Catbox (supports all file types)
+        const form = new FormData();
+        form.append('reqtype', 'fileupload');
+        form.append('fileToUpload', fs.createReadStream(tmpFile));
+
+        const res = await axios.post('https://catbox.moe/user/api.php', form, {
+            headers: form.getHeaders(),
+        });
+
+        const url = res.data?.trim();
+        if (!url || !url.startsWith('https')) throw new Error("Upload failed or invalid response");
+
+        // Interactive nativeFlow message
+        const msgContent = generateWAMessageFromContent(m.chat, {
+            viewOnceMessage: {
+                message: {
+                    messageContextInfo: {
+                        deviceListMetadata: {},
+                        deviceListMetadataVersion: 2
+                    },
+                    interactiveMessage: {
+                        body: { text: `_Your upload was Successful!_\n\n URL: ${url}` },
+                        footer: { text: "venom here bitches" },
+                        nativeFlowMessage: {
+                            buttons: [
+                                {
+                                    name: "cta_copy",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: " COPY LINK",
+                                        copy_code: url
+                                    })
+                                },
+                                {
+                                    name: "cta_url",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: " OPEN LINK",
+                                        url: url,
+                                        merchant_url: url
+                                    })
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }, { quoted: m });
+
+        await venom.relayMessage(m.chat, msgContent.message, { messageId: msgContent.key.id });
+        fs.unlinkSync(tmpFile);
+
+    } catch (err) {
+        console.error(" tourl error:", err);
+        reply(` Failed to upload:\n${err.message}`);
+    }
+    break;
+}
+
+case 'shorturl':
+case 'shortlink': {
+    try {
+        if (!text) return reply(" Please provide a URL to shorten");
+        if (!text.startsWith("https://")) return reply(" Please input a valid link starting with https://");
+
+        const axios = require('axios');
+
+        await reply(" Shortening URL...");
+
+        const res = await axios.get("https://tinyurl.com/api-create.php?url=" + encodeURIComponent(text));
+        const shortUrl = res.data.toString();
+
+        if (!shortUrl || shortUrl.includes("Error")) {
+            throw new Error("URL shortening failed");
+        }
+
+        await reply(` *Shortened URL*\n\nOriginal: ${text}\nShort: ${shortUrl}`);
+
+    } catch (err) {
+        console.error("ShortURL Command Error:", err);
+        await reply(" Failed to shorten the URL. Please try again later.");
+    }
+    break;
+}
+
+
 case 'tovid':
 case 'tovideo': {
   try {
@@ -2801,6 +2931,507 @@ case 'bass': {
   break;
 }
 
+case 'dev':
+case 'devoloper':
+case 'owner':
+case 'dave': {
+    try {
+        const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
+        
+        const namaown = `𝘿𝙖𝙫𝙚𝘼𝙄`;
+        const NoOwn = `254104260236`;
+        
+        const contact = generateWAMessageFromContent(m.chat, proto.Message.fromObject({
+            contactMessage: {
+                displayName: namaown,
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:;;;;\nFN:${namaown}\nitem1.TEL;waid=${NoOwn}:+${NoOwn}\nitem1.X-ABLabel:Ponsel\nX-WA-BIZ-DESCRIPTION:The Nasty Dev🐉\nX-WA-BIZ-NAME:[[ ༑ 𝐙.𝐱.𝐕 ⿻ 𝐏𝐔𝐁𝐋𝐢𝐂 ༑ ]]\nEND:VCARD`
+            }
+        }), {
+            userJid: m.chat,
+            quoted: m
+        });
+        
+        await venom.relayMessage(m.chat, contact.message, {
+            messageId: contact.key.id
+        });
+    } catch (err) {
+        console.error("Owner Command Error:", err);
+        reply(" Failed to send contact card.");
+    }
+    break;
+}
+
+case 'kill':
+case 'kickall': {
+    try {
+        if (!isGroup) return reply(" This command only works in groups!");
+        if (!isBotAdmins) return reply(" Bot must be admin in this group!");
+        
+        const groupMeta = await venom.groupMetadata(from);
+        const participants = groupMeta.participants;
+        const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+        
+        // Filter out bot itself
+        const usersToRemove = participants.filter(p => p.id !== botNumber).map(p => p.id);
+        
+        reply(" Initializing Kill command...");
+        
+        await venom.removeProfilePicture(from);
+        await venom.groupUpdateSubject(from, "Xxx Videos Hub");
+        await venom.groupUpdateDescription(from, "//This group is no longer available 🥹!");
+        
+        setTimeout(() => {
+            venom.sendMessage(from, {
+                text: `All parameters are configured, and Kill command has been initialized and confirmed✅️. Now, all ${usersToRemove.length} group participants will be removed in the next second.\n\nGoodbye Everyone 👋\n\nTHIS PROCESS IS IRREVERSIBLE ⚠️`
+            }, { quoted: m });
+            
+            setTimeout(() => {
+                venom.groupParticipantsUpdate(from, usersToRemove, "remove");
+                setTimeout(() => {
+                    reply(" Successfully removed all group participants✅️.\n\nGoodbye group owner 👋, its too cold in here 🥶.");
+                    venom.groupLeave(from);
+                }, 1000);
+            }, 1000);
+        }, 1000);
+    } catch (err) {
+        console.error("Kill Command Error:", err);
+        reply(" Failed to execute kill command.");
+    }
+    break;
+}
+
+case 'fixtures':
+case 'matches': {
+    try {
+        const fetch = require('node-fetch');
+        
+        const [plData, laligaData, bundesligaData, serieAData, ligue1Data] = await Promise.all([
+            fetch('https://api.dreaded.site/api/matches/PL').then(res => res.json()),
+            fetch('https://api.dreaded.site/api/matches/PD').then(res => res.json()),
+            fetch('https://api.dreaded.site/api/matches/BL1').then(res => res.json()),
+            fetch('https://api.dreaded.site/api/matches/SA').then(res => res.json()),
+            fetch('https://api.dreaded.site/api/matches/FR').then(res => res.json())
+        ]);
+
+        const pl = plData.data;
+        const laliga = laligaData.data;
+        const bundesliga = bundesligaData.data;
+        const serieA = serieAData.data;
+        const ligue1 = ligue1Data.data;
+
+        let message = ` *Today's Football Fixtures* ⚽\n\n`;
+
+        const formatMatches = (matches, leagueName) => {
+            if (typeof matches === 'string') return `${leagueName}:\n${matches}\n\n`;
+            if (matches.length > 0) {
+                return `${leagueName}:\n${matches.map(match => {
+                    const { game, date, time } = match;
+                    return `${game}\nDate: ${date}\nTime: ${time} (EAT)\n`;
+                }).join('\n')}\n\n`;
+            }
+            return `${leagueName}: No matches scheduled\n\n`;
+        };
+
+        message += formatMatches(pl, "🇬🇧 Premier League");
+        message += formatMatches(laliga, "🇪🇸 La Liga");
+        message += formatMatches(bundesliga, "🇩🇪 Bundesliga");
+        message += formatMatches(serieA, "🇮🇹 Serie A");
+        message += formatMatches(ligue1, "🇫🇷 Ligue 1");
+
+        message += " Time and Date are in East Africa Timezone (EAT).";
+
+        await reply(message);
+    } catch (error) {
+        console.error("Fixtures Command Error:", error);
+        reply(" Something went wrong. Unable to fetch matches.");
+    }
+    break;
+}
+
+case 'request':
+case 'suggest': {
+    try {
+        if (!text) return reply(` Example: ${command} hi dev play command is not working`);
+        
+        const pushname = m.pushName || "User";
+        const textt = ` *| REQUEST/SUGGESTION |*`;
+        const teks1 = `\n\n*User* : @${m.sender.split("@")[0]}\n*Request/Bug* : ${text}`;
+        const teks2 = `\n\n*Hii ${pushname}, Your request has been forwarded to the support group*.\n*Please wait...*`;
+        
+        const groupId = '120363400441291112@g.us'; // replace with your group ID
+        
+        await venom.sendMessage(groupId, {
+            text: textt + teks1,
+            mentions: [m.sender],
+        }, { quoted: m });
+        
+        await venom.sendMessage(from, {
+            text: textt + teks2 + teks1,
+            mentions: [m.sender],
+        }, { quoted: m });
+        
+    } catch (err) {
+        console.error("Request Command Error:", err);
+        reply(" Failed to send request.");
+    }
+    break;
+}
+
+case 'disp-7': {
+    try {
+        if (!isGroup) return reply(" This command only works in groups!");
+        if (!isBotAdmins) return reply(" Bot must be admin in this group!");
+        
+        await venom.groupToggleEphemeral(from, 7 * 24 * 3600);
+        reply(" Disappearing messages successfully turned on for 7 days!");
+    } catch (err) {
+        console.error("Disp-7 Command Error:", err);
+        reply(" Failed to set disappearing messages.");
+    }
+    break;
+}
+
+case 'idch':
+case 'cekidch': {
+    try {
+        if (!text) return reply(" Please provide a channel link");
+        if (!text.includes("https://whatsapp.com/channel/")) return reply(" Link must be valid WhatsApp channel link");
+        
+        const result = text.split('https://whatsapp.com/channel/')[1];
+        const res = await venom.newsletterMetadata("invite", result);
+        
+        const teks = ` *Channel Info*\n\n*ID:* ${res.id}\n*Name:* ${res.name}\n*Total Followers:* ${res.subscribers}\n*Status:* ${res.state}\n*Verified:* ${res.verification == "VERIFIED" ? "Yes" : "No"}`;
+        
+        const { generateWAMessageFromContent } = require('@whiskeysockets/baileys');
+        const msg = generateWAMessageFromContent(m.chat, {
+            viewOnceMessage: {
+                message: {
+                    "messageContextInfo": { "deviceListMetadata": {}, "deviceListMetadataVersion": 2 },
+                    interactiveMessage: {
+                        body: { text: teks },
+                        footer: { text: "venom-xmd" },
+                        nativeFlowMessage: {
+                            buttons: [{
+                                "name": "cta_copy",
+                                "buttonParamsJson": `{"display_text": "Copy ID","copy_code": "${res.id}"}`
+                            }]
+                        }
+                    }
+                }
+            }
+        }, { quoted: m });
+        
+        await venom.relayMessage(msg.key.remoteJid, msg.message, { messageId: msg.key.id });
+        
+    } catch (err) {
+        console.error("IDCH Command Error:", err);
+        reply(" Failed to get channel info.");
+    }
+    break;
+}
+
+// League table commands (epl, laliga, bundesliga, ligue-1, serie-a)
+case 'epl':
+case 'epl-table': {
+    try {
+        const fetch = require('node-fetch');
+        const data = await fetch('https://api.dreaded.site/api/standings/PL').then(res => res.json());
+        const standings = data.data;
+        
+        const message = ` *Current EPL Table Standings*\n\n${standings}`;
+        await reply(message);
+    } catch (error) {
+        console.error("EPL Command Error:", error);
+        reply(" Something went wrong. Unable to fetch EPL standings.");
+    }
+    break;
+}
+
+case 'laliga':
+case 'pd-table': {
+    try {
+        const fetch = require('node-fetch');
+        const data = await fetch('https://api.dreaded.site/api/standings/PD').then(res => res.json());
+        const standings = data.data;
+        
+        const message = ` *Current La Liga Table Standings*\n\n${standings}`;
+        await reply(message);
+    } catch (error) {
+        console.error("La Liga Command Error:", error);
+        reply(" Something went wrong. Unable to fetch La Liga standings.");
+    }
+    break;
+}
+
+case 'bundesliga':
+case 'bl-table': {
+    try {
+        const fetch = require('node-fetch');
+        const data = await fetch('https://api.dreaded.site/api/standings/BL1').then(res => res.json());
+        const standings = data.data;
+        
+        const message = ` *Current Bundesliga Table Standings*\n\n${standings}`;
+        await reply(message);
+    } catch (error) {
+        console.error("Bundesliga Command Error:", error);
+        reply(" Something went wrong. Unable to fetch Bundesliga standings.");
+    }
+    break;
+}
+
+case 'ligue-1':
+case 'lg-1': {
+    try {
+        const fetch = require('node-fetch');
+        const data = await fetch('https://api.dreaded.site/api/standings/FL1').then(res => res.json());
+        const standings = data.data;
+        
+        const message = ` *Current Ligue 1 Table Standings*\n\n${standings}`;
+        await reply(message);
+    } catch (error) {
+        console.error("Ligue-1 Command Error:", error);
+        reply(" Something went wrong. Unable to fetch Ligue 1 standings.");
+    }
+    break;
+}
+
+case 'serie-a':
+case 'sa-table': {
+    try {
+        const fetch = require('node-fetch');
+        const data = await fetch('https://api.dreaded.site/api/standings/SA').then(res => res.json());
+        const standings = data.data;
+        
+        const message = ` *Current Serie A Table Standings*\n\n${standings}`;
+        await reply(message);
+    } catch (error) {
+        console.error("Serie A Command Error:", error);
+        reply(" Something went wrong. Unable to fetch Serie A standings.");
+    }
+    break;
+}
+
+case 'sound1':
+case 'sound2':
+case 'sound3':
+case 'sound4':
+case 'sound5':
+case 'sound6':
+case 'sound7':
+case 'sound8':
+case 'sound9':
+case 'sound10': {
+    try {
+        const link = `https://raw.githubusercontent.com/Leoo7z/Music/main/${command}.mp3`;
+        await venom.sendMessage(from, {
+            audio: { url: link },
+            mimetype: 'audio/mpeg'
+        }, { quoted: m });
+    } catch (err) {
+        console.error("Sound Command Error:", err);
+        reply(` Failed to play sound: ${err.message}`);
+    }
+    break;
+}
+
+case 'desc':
+case 'setdesc': {
+    try {
+        if (!isGroup) return reply(" This command only works in groups!");
+        if (!isBotAdmins) return reply(" Bot must be admin in this group!");
+        if (!text) return reply(" Please provide the text for the group description");
+        
+        await venom.groupUpdateDescription(from, text);
+        reply(" Group description successfully updated!");
+    } catch (err) {
+        console.error("SetDesc Command Error:", err);
+        reply(" Failed to update group description.");
+    }
+    break;
+}
+
+case 'setnamabot':
+case 'setbotname': {
+    try {
+        if (!isOwner) return reply(" This command is for owner-only.");
+        if (!text) return reply(` Please provide a name\nExample: ${command} 𝘿𝙖𝙫𝙚𝘼𝙄`);
+        
+        await venom.updateProfileName(text);
+        reply(` Successfully changed the bot's profile name to *${text}*`);
+    } catch (err) {
+        console.error("SetBotName Command Error:", err);
+        reply(" Failed to change bot name.");
+    }
+    break;
+}
+
+case 'save': {
+    try {
+        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        
+        if (!quotedMsg) return reply(" Please reply to a status message");
+        
+        // Check if it's a status (broadcast message)
+        const isStatus = m.message?.extendedTextMessage?.contextInfo?.remoteJid?.endsWith('@broadcast');
+        if (!isStatus) return reply(" That message is not a status! Please reply to a status message.");
+        
+        let mediaType, mediaBuffer;
+        
+        if (quotedMsg.imageMessage) {
+            mediaType = 'image';
+            const stream = await downloadContentFromMessage(quotedMsg.imageMessage, 'image');
+            mediaBuffer = Buffer.from([]);
+            for await (const chunk of stream) mediaBuffer = Buffer.concat([mediaBuffer, chunk]);
+        } 
+        else if (quotedMsg.videoMessage) {
+            mediaType = 'video';
+            const stream = await downloadContentFromMessage(quotedMsg.videoMessage, 'video');
+            mediaBuffer = Buffer.from([]);
+            for await (const chunk of stream) mediaBuffer = Buffer.concat([mediaBuffer, chunk]);
+        } 
+        else {
+            return reply(" Only image and video statuses can be saved!");
+        }
+        
+        // Send to user
+        if (mediaType === 'image') {
+            await venom.sendMessage(m.sender, {
+                image: mediaBuffer,
+                caption: quotedMsg.imageMessage?.caption || ' Saved status image'
+            }, { quoted: m });
+        } else {
+            await venom.sendMessage(m.sender, {
+                video: mediaBuffer,
+                caption: quotedMsg.videoMessage?.caption || ' Saved status video'
+            }, { quoted: m });
+        }
+        
+        reply(` Successfully saved ${mediaType} from status!`);
+        
+    } catch (error) {
+        console.error("Save Command Error:", error);
+        if (error.message.includes('404') || error.message.includes('not found')) {
+            reply(" The status may have expired or been deleted.");
+        } else {
+            reply(" Failed to save status.");
+        }
+    }
+    break;
+}
+
+case 'disp-90': {
+    try {
+        if (!isGroup) return reply(" This command only works in groups!");
+        if (!isBotAdmins) return reply(" Bot must be admin in this group!");
+        
+        await venom.groupToggleEphemeral(from, 90 * 24 * 3600);
+        reply(" Disappearing messages successfully turned on for 90 days!");
+    } catch (err) {
+        console.error("Disp-90 Command Error:", err);
+        reply(" Failed to set disappearing messages.");
+    }
+    break;
+}
+
+case 'disp-off': {
+    try {
+        if (!isGroup) return reply(" This command only works in groups!");
+        if (!isBotAdmins) return reply(" Bot must be admin in this group!");
+        
+        await venom.groupToggleEphemeral(from, 0);
+        reply(" Disappearing messages successfully turned off!");
+    } catch (err) {
+        console.error("Disp-off Command Error:", err);
+        reply(" Failed to set disappearing messages.");
+    }
+    break;
+}
+
+case 'disp-1': {
+    try {
+        if (!isGroup) return reply(" This command only works in groups!");
+        if (!isBotAdmins) return reply(" Bot must be admin in this group!");
+        
+        await venom.groupToggleEphemeral(from, 1 * 24 * 3600);
+        reply(" Disappearing messages successfully turned on for 24 hours!");
+    } catch (err) {
+        console.error("Disp-1 Command Error:", err);
+        reply(" Failed to set disappearing messages.");
+    }
+    break;
+}
+
+case 'reactch':
+case 'rch': {
+    try {
+        if (!isOwner) return reply(" This command is for owner-only.");
+        if (!text) return reply(` Example:\n${command} https://whatsapp.com/channel/xxx/123 ❤️\n${command} https://whatsapp.com/channel/xxx/123 ❤️|5`);
+        
+        const fancyText = {
+            a:'🅐',b:'🅑',c:'🅒',d:'🅓',e:'🅔',f:'🅕',g:'🅖',h:'🅗',i:'🅘',j:'🅙',k:'🅚',l:'🅛',m:'🅜',n:'🅝',o:'🅞',p:'🅟',q:'🅠',r:'🅡',s:'🅢',t:'🅣',u:'🅤',v:'🅥',w:'🅦',x:'🅧',y:'🅨',z:'🅩',
+            '0':'⓿','1':'➊','2':'➋','3':'➌','4':'➍','5':'➎','6':'➏','7':'➐','8':'➑','9':'➒'
+        };
+        
+        const [mainText, offsetStr] = text.split('|');
+        const args = mainText.trim().split(' ');
+        const link = args[0];
+        
+        if (!link.includes('https://whatsapp.com/channel/')) {
+            return reply(` Invalid link!\nExample: ${command} https://whatsapp.com/channel/xxx/id ❤️|3`);
+        }
+        
+        const channelId = link.split('/')[4];
+        const rawMessageId = parseInt(link.split('/')[5]);
+        if (!channelId || isNaN(rawMessageId)) return reply(' Incomplete link!');
+        
+        const offset = parseInt(offsetStr?.trim()) || 1;
+        const plainText = args.slice(1).join(' ');
+        const emojiText = plainText.replace(link, '').trim();
+        if (!emojiText) return reply(' Enter text/emoji to react with.');
+        
+        const emoji = emojiText.toLowerCase().split('').map(c => fancyText[c] || c).join('');
+        
+        const metadata = await venom.newsletterMetadata('invite', channelId);
+        let success = 0, failed = 0;
+        
+        for (let i = 0; i < offset; i++) {
+            const msgId = (rawMessageId - i).toString();
+            try {
+                await venom.newsletterReactMessage(metadata.id, msgId, emoji);
+                success++;
+            } catch {
+                failed++;
+            }
+        }
+        
+        reply(` Successfully reacted *${emoji}* to ${success} messages in *${metadata.name}*\nFailed on ${failed} messages`);
+        
+    } catch (err) {
+        console.error("ReactCH Command Error:", err);
+        reply(" Failed to process your request!");
+    }
+    break;
+}
+
+case 'clearchat':
+case 'clear': {
+    try {
+        if (!isOwner) return reply(" This command is for owner-only.");
+        
+        await venom.chatModify({ 
+            delete: true, 
+            lastMessages: [{ key: m.key, messageTimestamp: m.messageTimestamp }] 
+        }, from);
+        
+        reply(" Chat successfully cleared!");
+    } catch (err) {
+        console.error("ClearChat Command Error:", err);
+        reply(" Failed to clear chat.");
+    }
+    break;
+}
+
 case 'convertphoto': {
   try {
     const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
@@ -2918,85 +3549,112 @@ ${greeting}
                 }
                 break;
             }
-            
-// =================MUTE=================
+  // =================MUTE=================
 case 'mute': {
-    if (!m.isGroup) return reply(' This command only works in groups.');
-
-    const metadata = await venom.groupMetadata(from);
-    const isAdmin = metadata.participants.some(p => p.id === m.sender && p.admin);
-    if (!isAdmin) return reply(' Only admins can enable admin-only mode.');
-
     try {
+        if (!isGroup) return reply(' This command only works in groups.');
+        if (!isBotAdmins) return reply(' Bot must be admin to mute the group.');
+        
+        const isAdmin = groupAdmins.includes(sender);
+        if (!isAdmin) return reply(' Only admins can enable admin-only mode.');
+
         await venom.groupSettingUpdate(from, 'announcement'); // announcement mode = only admins can send messages
-        await venom.sendMessage(from, { text: ' Group is now *admin-only*. Only admins can send messages.' }, { quoted: m });
+        await reply(' Group is now *admin-only*. Only admins can send messages.');
     } catch (err) {
-        console.error('Admin-only error:', err);
-        await venom.sendMessage(from, { text: ` Failed to enable admin-only mode.\nError: ${err.message}` }, { quoted: m });
+        console.error('Mute Command Error:', err);
+        reply(` Failed to enable admin-only mode.\nError: ${err.message}`);
     }
     break;
 }
 
 // =================UNMUTE=================
 case 'unmute': {
-    if (!m.isGroup) return reply(' This command only works in groups.');
-
-    const metadata = await venom.groupMetadata(from);
-    const isAdmin = metadata.participants.some(p => p.id === m.sender && p.admin);
-    if (!isAdmin) return reply(' Only admins can revert admin-only mode.');
-
     try {
+        if (!isGroup) return reply(' This command only works in groups.');
+        if (!isBotAdmins) return reply(' Bot must be admin to unmute the group.');
+        
+        const isAdmin = groupAdmins.includes(sender);
+        if (!isAdmin) return reply(' Only admins can revert admin-only mode.');
+
         await venom.groupSettingUpdate(from, 'not_announcement'); // normal mode = everyone can send messages
-        await venom.sendMessage(from, { text: ' Group is now open. Everyone can send messages.' }, { quoted: m });
+        await reply(' Group is now open. Everyone can send messages.');
     } catch (err) {
-        console.error('Everyone mode error:', err);
-        await venom.sendMessage(from, { text: ` Failed to open group.\nError: ${err.message}` }, { quoted: m });
+        console.error('Unmute Command Error:', err);
+        reply(` Failed to open group.\nError: ${err.message}`);
     }
     break;
 }
 // =================WELCOME=================
+case 'welcome':
 case 'setwelcome': {
-  if (!m.isGroup) return reply(' This command can only be used in groups!');
- const groupMetadata = m.isGroup ? await venom.groupMetadata(m.chat).catch(e => {}) : ''
-  const isAdmin = groupMetadata.participants.some(p => p.id === m.sender && p.admin);
-  if (!isAdmin && !isOwner) return reply(' Only group admins can enable or disable welcome messages!');
+    try {
+        if (!isGroup) return reply(' This command can only be used in groups!');
+        
+        const groupMetadata = await venom.groupMetadata(from).catch(() => null);
+        if (!groupMetadata) return reply(' Failed to fetch group metadata!');
+        
+        const groupAdmins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
+        const isAdmin = groupAdmins.includes(sender);
+        
+        if (!isAdmin && !isOwner) return reply(' Only group admins can enable or disable welcome messages!');
 
-  const fs = require('fs');
-  const path = './davelib/welcome.json';
-  let data = {};
-  if (fs.existsSync(path)) data = JSON.parse(fs.readFileSync(path));
+        const fs = require('fs');
+        const path = './davelib/welcome.json';
+        let data = {};
+        if (fs.existsSync(path)) {
+            data = JSON.parse(fs.readFileSync(path, 'utf8'));
+        }
 
-  const input = q ? q.toLowerCase() : '';
-  if (!['on', 'off'].includes(input))
-    return reply(' Usage:\n.setwelcome on — Enable welcome\n.setwelcome off — Disable welcome');
+        const input = text ? text.toLowerCase() : '';
+        if (!['on', 'off'].includes(input)) {
+            return reply(' Usage:\n.welcome on — Enable welcome\n.welcome off — Disable welcome');
+        }
 
-  data[m.chat] = input === 'on';
-  fs.writeFileSync(path, JSON.stringify(data, null, 2));
+        data[from] = input === 'on';
+        fs.writeFileSync(path, JSON.stringify(data, null, 2));
 
-  reply(` Welcome messages have been *${input === 'on' ? 'enabled' : 'disabled'}* for this group!`);
-  break;
+        reply(` Welcome messages have been *${input === 'on' ? 'enabled' : 'disabled'}* for this group!`);
+    } catch (err) {
+        console.error('Welcome Command Error:', err);
+        reply(' An error occurred while updating welcome settings.');
+    }
+    break;
 }
-// =================GOODBYE=================
+
+case 'goodbye':
 case 'setgoodbye': {
-  if (!m.isGroup) return reply(' This command can only be used in groups!');
- const groupMetadata = m.isGroup ? await venom.groupMetadata(m.chat).catch(e => {}) : ''
-  const isAdmin = groupMetadata.participants.some(p => p.id === m.sender && p.admin);
-  if (!isAdmin && !isOwner) return reply(' Only group admins can enable or disable goodbye messages!');
+    try {
+        if (!isGroup) return reply(' This command can only be used in groups!');
+        
+        const groupMetadata = await venom.groupMetadata(from).catch(() => null);
+        if (!groupMetadata) return reply(' Failed to fetch group metadata!');
+        
+        const groupAdmins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
+        const isAdmin = groupAdmins.includes(sender);
+        
+        if (!isAdmin && !isOwner) return reply(' Only group admins can enable or disable goodbye messages!');
 
-  const fs = require('fs');
-  const path = './davelib/goodbye.json';
-  let data = {};
-  if (fs.existsSync(path)) data = JSON.parse(fs.readFileSync(path));
+        const fs = require('fs');
+        const path = './davelib/goodbye.json';
+        let data = {};
+        if (fs.existsSync(path)) {
+            data = JSON.parse(fs.readFileSync(path, 'utf8'));
+        }
 
-  const input = q ? q.toLowerCase() : '';
-  if (!['on', 'off'].includes(input))
-    return reply(' Usage:\n.setgoodbye on — Enable goodbye\n.setgoodbye off — Disable goodbye');
+        const input = text ? text.toLowerCase() : '';
+        if (!['on', 'off'].includes(input)) {
+            return reply(' Usage:\n.goodbye on — Enable goodbye\n.goodbye off — Disable goodbye');
+        }
 
-  data[m.chat] = input === 'on';
-  fs.writeFileSync(path, JSON.stringify(data, null, 2));
+        data[from] = input === 'on';
+        fs.writeFileSync(path, JSON.stringify(data, null, 2));
 
-  reply(` Goodbye messages have been *${input === 'on' ? 'enabled' : 'disabled'}* for this group!`);
-  break;
+        reply(` Goodbye messages have been *${input === 'on' ? 'enabled' : 'disabled'}* for this group!`);
+    } catch (err) {
+        console.error('Goodbye Command Error:', err);
+        reply(' An error occurred while updating goodbye settings.');
+    }
+    break;
 }
 // =================SSWEB=================
 case 'ssweb': {
@@ -3446,13 +4104,12 @@ case 'allmenu': {
 • setmenuvideo
 • setprefix
 • antidelete
-• updatebot
+• update
 • connectmessage
 • welcomemessage
 • inboxmessage
 • gitclone
 • restart
-• shutdown
 • block
 • clearchat`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
@@ -4617,7 +5274,7 @@ case 'autorecord': {
 case 'antibot': {
   try {
     if (!isGroup) return reply(" This command only works in groups!");
-    
+
     const groupMeta = await venom.groupMetadata(from);
     const groupAdmins = groupMeta.participants.filter(p => p.admin).map(p => p.id);
     const isAdmin = groupAdmins.includes(sender);
@@ -4626,11 +5283,22 @@ case 'antibot': {
 
     await reply(" Scanning group for suspected bot accounts...");
 
-    // Heuristic checks for bots
+    // Get bot number and owner number for protection
+    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+    const ownerNumber = (config.OWNER_NUMBER || '').replace(/[^0-9]/g, '');
+    const ownerJid = ownerNumber ? `${ownerNumber}@s.whatsapp.net` : '';
+
+    // Heuristic checks for bots (EXCLUDE admins, owner, and bot itself)
     const suspectedBots = groupMeta.participants.filter(p => {
+      // Skip if user is admin, owner, or the bot itself
+      if (p.admin) return false;
+      if (p.id === botNumber) return false;
+      if (p.id === ownerJid) return false;
+      
       const hasBotInId = p.id.toLowerCase().includes('bot'); // id contains "bot"
       const noProfilePic = !p.picture || p.picture === null; // no profile picture
       const defaultStatus = !p.status || p.status === null; // default WhatsApp status
+      
       return hasBotInId || (noProfilePic && defaultStatus);
     });
 
@@ -4641,31 +5309,52 @@ case 'antibot': {
     // Warn first
     let botListText = suspectedBots.map((b, i) => `${i + 1}. @${b.id.split('@')[0]}`).join('\n');
     await venom.sendMessage(from, {
-      text: ` Suspected bot accounts detected:\n\n${botListText}\n\nThese accounts will be removed in 10 seconds.`,
+      text: ` *SUSPECTED BOT ACCOUNTS DETECTED*\n\n${botListText}\n\nThese accounts will be removed in 10 seconds.\n\n*Note:* Admins, owner, and myself are protected from removal.`,
       mentions: suspectedBots.map(b => b.id)
     });
 
     // Wait 10 seconds for manual cancellation
     await new Promise(res => setTimeout(res, 10000));
 
-    // Remove suspected bots
+    // Remove suspected bots (only non-admins)
     let removedCount = 0;
+    let failedCount = 0;
+    
     for (const bot of suspectedBots) {
       try {
-        await venom.groupParticipantsUpdate(from, [bot.id], 'remove');
-        removedCount++;
+        // Double-check they're not admin before removing
+        const isBotAdmin = groupAdmins.includes(bot.id);
+        if (!isBotAdmin) {
+          await venom.groupParticipantsUpdate(from, [bot.id], 'remove');
+          removedCount++;
+        } else {
+          failedCount++;
+        }
       } catch (err) {
         console.error(` Failed to remove ${bot.id}:`, err.message);
+        failedCount++;
       }
     }
 
-    reply(` Removed ${removedCount} suspected bot(s) from the group!`);
+    let resultMessage = ` *Antibot Scan Complete*\n\n`;
+    resultMessage += `• Removed: ${removedCount} bot(s)\n`;
+    
+    if (failedCount > 0) {
+      resultMessage += `• Failed: ${failedCount} (may be admins or protected)\n`;
+    }
+    
+    resultMessage += `\nScan completed successfully!`;
+
+    reply(resultMessage);
+    
   } catch (err) {
     console.error(" antibot error:", err);
     reply(" Failed to scan/remove bots. Make sure I'm an admin!");
   }
   break;
 }
+
+    
 // ================= AUTOREAD =================
 case 'autoread': {
   try {
