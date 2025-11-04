@@ -45,7 +45,12 @@ function loadSettings() {
       },
 
       // Warning system
-      warnings: { enabled: true, maxWarnings: 3, chats: {} }
+      warnings: { enabled: true, maxWarnings: 3, chats: {} },
+
+      // Bot info for menu
+      botName: "Dave AI",
+      ownername: "Dev-davs",
+      owner: ["254104260236"]
     }, null, 2));
   }
 
