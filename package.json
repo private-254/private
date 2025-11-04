@@ -1,6 +1,6 @@
 {
   "name": "venom-xmd",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "venom-xmd Whatsapp bot based on baileys",
   "main": "index.js",
   "scripts": {
