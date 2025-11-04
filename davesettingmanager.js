@@ -11,8 +11,10 @@ function loadSettings() {
       autorecord: { enabled: false },
       autotyping: { enabled: false },
       antidelete: { enabled: true },
-      
-     
+      connectmessage: { enabled: false },
+      chatbot: { enabled: false },
+
+      // Flat structure settings
       showConnectMsg: false,
       anticall: false,
       autoviewstatus: true,
@@ -25,7 +27,7 @@ function loadSettings() {
       public: true,
       onlygroup: false,
       onlypc: false,
-      
+
       // Group protection settings (empty objects)
       antilink: {},
       antitag: {},
@@ -33,7 +35,7 @@ function loadSettings() {
       antipromote: {},
       antidemote: {},
       antibot: {},
-      
+
       // Auto-react settings
       areact: {
         enabled: false,
@@ -41,7 +43,7 @@ function loadSettings() {
         emojis: ["😂","🔥","😎","👍","💀","❤️","🤖","🥵","🙌","💯"],
         mode: "random"
       },
-      
+
       // Warning system
       warnings: { enabled: true, maxWarnings: 3, chats: {} }
     }, null, 2));
