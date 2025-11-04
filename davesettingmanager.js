@@ -23,7 +23,7 @@ function loadSettings() {
       goodbye: false,
       autobio: true,
       antilinkgc: { enabled: false },
-      online: true,
+      online: false,
       public: true,
       onlygroup: false,
       onlypc: false,
