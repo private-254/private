@@ -1,5 +1,3 @@
-
-
 const fs = require('fs');
 const fg = require('api-dylux');
 const axios = require('axios');
@@ -83,7 +81,7 @@ const isOwner = senderJid === botNumber;
     const text = args.join(" ");
 
     const time = new Date().toLocaleTimeString();
-   
+
 
 if (m.message) {
   const isGroupMsg = m.isGroup;
@@ -198,7 +196,7 @@ if (isGroup && global.settings?.antitag?.[from]?.enabled) {
     const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)]; // Pick a random emoji
 
     try {
-        await dave.sendMessage(m.chat, {
+        await venom.sendMessage(m.chat, {
             react: {
                 text: randomEmoji, // Emoji to react with
                 key: m.key,        // Message key to react to
@@ -296,8 +294,8 @@ if (!venom.isPublic && !isOwner) {
     await venom.sendMessage(m.chat, { text: `venom-xmd → Speed: ${latency}ms`, edit: sent.key }, { quoted: m });
     break;
 }
-				case 'alive':
-				case 'runtime':
+                                case 'alive':
+                                case 'runtime':
 case 'uptime': {
     const axios = require('axios');
     const os = require('os');
@@ -368,30 +366,30 @@ case 'uptime': {
     );
 
     break;
-		}
+                }
+
+
 				
-case "calc":{
-if (text.split("+")[0] && text.split("+")[1]) {
-const nilai_one = Number(text.split("+")[0])
-const nilai_two = Number(text.split("+")[1])
-reply(`${nilai_one + nilai_two}`)
-} else if (text.split("-")[0] && text.split("-")[1]) {
-const nilai_one = Number(text.split("-")[0])
-const nilai_two = Number(text.split("-")[1])
-reply(`${nilai_one - nilai_two}`)
-} else if (text.split("×")[0] && text.split("×")[1]) {
-const nilai_one = Number(text.split("×")[0])
-const nilai_two = Number(text.split("×")[1])
-reply(`${nilai_one * nilai_two}`)
-} else if (text.split("÷")[0] && text.split("÷")[1]) {
-const nilai_one = Number(text.split("÷")[0])
-const nilai_two = Number(text.split("÷")[1])
-reply(`${nilai_one / nilai_two}`)
-} else reply(`*Example* : ${prefix + command} 1 + 1`)
+case 'calc': {
+    if (text.split("+")[0] && text.split("+")[1]) {
+        const nilai_one = Number(text.split("+")[0])
+        const nilai_two = Number(text.split("+")[1])
+        reply(`${nilai_one + nilai_two}`)
+    } else if (text.split("-")[0] && text.split("-")[1]) {
+        const nilai_one = Number(text.split("-")[0])
+        const nilai_two = Number(text.split("-")[1])
+        reply(`${nilai_one - nilai_two}`)
+    } else if (text.split("×")[0] && text.split("×")[1]) {
+        const nilai_one = Number(text.split("×")[0])
+        const nilai_two = Number(text.split("×")[1])
+        reply(`${nilai_one * nilai_two}`)
+    } else if (text.split("÷")[0] && text.split("÷")[1]) {
+        const nilai_one = Number(text.split("÷")[0])
+        const nilai_two = Number(text.split("÷")[1])
+        reply(`${nilai_one / nilai_two}`)
+    } else reply(`*Example* : ${prefix + command} 1 + 1`)
+    break;
 }
-break
-
-
 
 
             // ================= MENU =================
