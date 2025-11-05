@@ -30,11 +30,6 @@ const log = {
   warn: (msg) => console.log(chalk.yellowBright(`[WARN] ${msg}`))
 };
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-const question = (text) => new Promise((resolve) => rl.question(text, resolve));
-
-const sessionDir = path.join(__dirname, 'session');
-const credsPath = path.join(sessionDir, 'creds.json');
 
 function detectHost() {
   const env = process.env;
@@ -52,23 +47,30 @@ function detectHost() {
   return 'Dave Host';
 }
 
-async function downloadSessionData() {
-  try {
+
+
+const sessionDir = path.join(__dirname, 'session');
+const credsPath = path.join(sessionDir, 'creds.json');
+
+async function saveSessionFromConfig() {
+  try {// 🧠 Readline setup
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+function question(query) {
+  return new Promise(resolve => rl.question(query, ans => resolve(ans.trim())));
+}
+    if (!config.SESSION_ID) return false;
+    if (!config.SESSION_ID.includes('dave~')) return false;
+
+    const base64Data = config.SESSION_ID.split("dave~")[1];
+    if (!base64Data) return false;
+
+    const sessionData = Buffer.from(base64Data, 'base64');
     await fs.promises.mkdir(sessionDir, { recursive: true });
-
-    if (!fs.existsSync(credsPath)) {
-      if (!config.SESSION_ID) {
-        return console.log(chalk.red(`Session id not found at SESSION_ID! Creds.json not found at session folder! Wait to enter your number`));
-      }
-
-      const base64Data = config.SESSION_ID.split("dave~")[1];
-      const sessionData = Buffer.from(base64Data, 'base64');
-      await fs.promises.writeFile(credsPath, sessionData);
-      console.log(chalk.green(`Session successfully saved from SESSION_ID to ${credsPath}`));
-      return true;
-    }
-  } catch (error) {
-    console.error('Error downloading session data:', error);
+    await fs.promises.writeFile(credsPath, sessionData);
+    console.log(chalk.green(`Session successfully saved from SESSION_ID to ${credsPath}`));
+    return true;
+  } catch (err) {
+    console.error("Failed to save session from config:", err);
     return false;
   }
 }
