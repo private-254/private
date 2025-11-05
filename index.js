@@ -88,8 +88,11 @@ async function startDave() {
     browser: ["Dave AI", "Chrome", "20.0.04"],
     auth: {
       creds: state.creds,
-      keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
-    },
+      keys: makeCacheableSignalKeyStore(
+      state.keys,
+      pino({ level: 'silent' }).child({ level: 'silent' })
+    )
+  },
     markOnlineOnConnect: false, // 🔒 CHANGED TO FALSE FOR STEALTH
     syncFullHistory: false, // 🔒 ADDED FOR STEALTH
     generateHighQualityLinkPreview: true,
@@ -110,22 +113,28 @@ async function startDave() {
     transactionOpts: { maxCommitRetries: 1 }
   });
 
-  dave.public = true;
+venom.ev.on('creds.update', saveCreds);
+ 
 
-  store.bind(dave.ev);
+ dave.public = true;
 
-  if (!dave.authState.creds.registered && (!config.SESSION_ID || config.SESSION_ID === "")) {
+   // Pairing code if not registered
+  if (! venom.authState.creds.registered && (!config.SESSION_ID || config.SESSION_ID === "")) {
     try {
-      const phoneNumber = await question(chalk.cyan(`Dave AI - Enter Your Number:`));
-      const code = await dave.requestPairingCode(phoneNumber.trim());
-      console.log(chalk.green(`Dave AI - Pairing Code:`), code);
-    } catch (error) {
-      console.error(chalk.red(`Error during pairing:`), error.message);
-      return;
+      const phoneNumber = await question(chalk.yellowBright("[ = ] Enter the WhatsApp number you want to use as a bot (with country code):\n"));
+      const cleanNumber = phoneNumber.replace(/[^0-9]/g, '');
+      console.clear();
+
+      const pairCode = await venom.requestPairingCode(cleanNumber);
+      log.info(`Enter this code on your phone to pair: ${chalk.green(pairCode)}`);
+      log.info("Wait a few seconds and approve the pairing on your phone...");
+    } catch (err) {
+      console.error("Pairing prompt failed:", err);
     }
   }
 
-  store.bind(dave.ev);
+
+  
 
   dave.downloadMediaMessage = async (message) => {
     let mime = (message.msg || message).mimetype || '';
