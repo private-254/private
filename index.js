@@ -47,17 +47,18 @@ function detectHost() {
   return 'Dave Host';
 }
 
+// 🧠 Readline setup
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+function question(query) {
+  return new Promise(resolve => rl.question(query, ans => resolve(ans.trim())));
+}
 
 
 const sessionDir = path.join(__dirname, 'session');
 const credsPath = path.join(sessionDir, 'creds.json');
 
 async function saveSessionFromConfig() {
-  try {// 🧠 Readline setup
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-function question(query) {
-  return new Promise(resolve => rl.question(query, ans => resolve(ans.trim())));
-}
+  try {
     if (!config.SESSION_ID) return false;
     if (!config.SESSION_ID.includes('dave~')) return false;
 
@@ -75,6 +76,7 @@ function question(query) {
   }
 }
 
+
 async function startDave() {
   const store = makeInMemoryStore({ logger: pino().child({ level: "silent" }) });
   const { state, saveCreds } = await useMultiFileAuthState("./session");
@@ -85,7 +87,7 @@ async function startDave() {
     version,
     logger: pino({ level: "silent" }),
     printQRInTerminal: false,
-    browser: ["Dave AI", "Chrome", "20.0.04"],
+    browser: ["VENOM-XMD", "Chrome", "20.0.04"],
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(
