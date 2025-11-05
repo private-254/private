@@ -181,6 +181,33 @@ if (isGroup && global.settings?.antitag?.[from]?.enabled) {
   }
 }
 
+        if (global.autoReact && global.autoReact[m.chat]) {
+    const emojis = [
+        "😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊",
+        "😍", "😘", "😎", "🤩", "🤔", "😏", "😣", "😥", "😮", "🤐",
+        "😪", "😫", "😴", "😌", "😛", "😜", "😝", "🤤", "😒", "😓",
+        "😔", "😕", "🙃", "🤑", "😲", "😖", "😞", "😟", "😤", "😢",
+        "😭", "😨", "😩", "🤯", "😬", "😰", "😱", "🥵", "🥶", "😳",
+        "🤪", "😡", "😠", "🤬", "😷", "🤒", "🤕", "🤢", "🤮", "🤧",
+        "😇", "🥳", "🤠", "🤡", "🤥", "🤫", "🤭", "🧐", "🤓", "😈",
+        "👿", "👹", "👺", "💀", "👻", "👽", "👾", "🤖", "🎃", "😺",
+        "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", "💋", "💌",
+        "💘", "💝", "💖", "💗", "💓", "💞", "💕", "💟", "💔", "❤️"
+    ]; // List of emojis to choose from
+
+    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)]; // Pick a random emoji
+
+    try {
+        await dave.sendMessage(m.chat, {
+            react: {
+                text: randomEmoji, // Emoji to react with
+                key: m.key,        // Message key to react to
+            },
+        });
+    } catch (err) {
+        console.error('Error while reacting:', err.message);
+    }
+}
 //  AntiBadWord with Strike System
 if (isGroup && global.settings?.antibadword?.[from]?.enabled) {
   const antibad = global.settings.antibadword[from];
@@ -343,6 +370,30 @@ case 'uptime': {
     break;
 		}
 				
+case "calc":{
+if (text.split("+")[0] && text.split("+")[1]) {
+const nilai_one = Number(text.split("+")[0])
+const nilai_two = Number(text.split("+")[1])
+reply(`${nilai_one + nilai_two}`)
+} else if (text.split("-")[0] && text.split("-")[1]) {
+const nilai_one = Number(text.split("-")[0])
+const nilai_two = Number(text.split("-")[1])
+reply(`${nilai_one - nilai_two}`)
+} else if (text.split("×")[0] && text.split("×")[1]) {
+const nilai_one = Number(text.split("×")[0])
+const nilai_two = Number(text.split("×")[1])
+reply(`${nilai_one * nilai_two}`)
+} else if (text.split("÷")[0] && text.split("÷")[1]) {
+const nilai_one = Number(text.split("÷")[0])
+const nilai_two = Number(text.split("÷")[1])
+reply(`${nilai_one / nilai_two}`)
+} else reply(`*Example* : ${prefix + command} 1 + 1`)
+}
+break
+
+
+
+
             // ================= MENU =================
 
   case 'menu':
