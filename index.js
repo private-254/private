@@ -15,7 +15,7 @@ const {
 
 const handleCommand = require('./dave');
 const config = require('./config');
-const { loadSettings } = require('./davesettingsManager');
+const { loadSettings } = require('./davesettingManager');
 global.settings = loadSettings();
 
 // Console helpers
