@@ -1,16 +1,15 @@
-// antiDelete.js
 const fs = require('fs');
 const path = require('path');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
 module.exports = function initAntiDelete(venom, opts = {}) {
-  const LIB_DIR = path.join(__dirname, './davelib');
-  const DB_PATH = opts.dbPath || path.join(LIB_DIR, 'antidelete.json');
-  const STATE_PATH = path.join(LIB_DIR, 'antidelete_state.json');
+  const DAVE_DIR = path.join(__dirname, './davelib');
+  const DB_PATH = opts.dbPath || path.join(DAVE_DIR, 'antidelete.json');
+  const STATE_PATH = path.join(DAVE_DIR, 'antidelete_state.json');
   const MAX_CACHE = opts.maxCache || 500;
 
   // Ensure folders exist
-  fs.mkdirSync(LIB_DIR, { recursive: true });
+  fs.mkdirSync(DAVE_DIR, { recursive: true });
 
   // Default config
   const defaultEnabled = typeof opts.enabled === 'boolean' ? opts.enabled : true;
@@ -181,7 +180,7 @@ module.exports = function initAntiDelete(venom, opts = {}) {
 
       if (!saved) {
         await venom.sendMessage(botNumber, {
-          text: ` Deleted message not found in cache in ${isGroup ? 'group' : 'private chat'}: ${chatName}`
+          text: `Deleted message not found in cache in ${isGroup ? 'group' : 'private chat'}: ${chatName}`
         });
         return;
       }
@@ -189,7 +188,7 @@ module.exports = function initAntiDelete(venom, opts = {}) {
       const senderJid = saved.sender || 'unknown@s.whatsapp.net';
       const userTag = `@${senderJid.split('@')[0]}`;
       const mention = [senderJid];
-      const header = ` *venom-Anti-Delete*\nChat: ${chatName}\nUser: ${userTag}`;
+      const header = ` 🔥*Venom anti-delete*🔥\nChat: ${chatName}\nUser: ${userTag}`;
       const targetJid = botNumber;
 
       // TEXT MESSAGE
