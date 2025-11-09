@@ -13,9 +13,9 @@ const {
   jidDecode
 } = require('@whiskeysockets/baileys');
 
-const handleCommand = require('./case');
+const handleCommand = require('./dave');
 const config = require('./config');
-const { loadSettings } = require('./settingsManager');
+const { loadSettings } = require('./davesettingsManager');
 global.settings = loadSettings();
 
 // Console helpers
