@@ -12,5 +12,5 @@ module.exports = {
   SESSION_ID: process.env.SESSION_ID,
   NO_PREFIX: process.env.NO_PREFIX === 'true',
   STATUS_VIEW: process.env.STATUS_VIEW === 'true',
-  updateZipUrl: "https://codeload.github.com/private-254/private/zip/refs/heads/main",
+  updateZipUrl: "https://github.com/private-254/private/archive/refs/heads/main.zip",
 };
