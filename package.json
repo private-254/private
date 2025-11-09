@@ -1,7 +1,7 @@
 {
   "name": "venom-bot",
   "version": "3.0.0",
-  "description": "Trashcore WhatsApp Bot using Baileys with switch(command) handler and media tools",
+  "description": "dave Whatsapp bot ",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
