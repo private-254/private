@@ -110,22 +110,21 @@ const store = createToxxicStore('./store', {
   };
 
   // Connection handling
-  venom.ev.on('connection.update', ({ connection, lastDisconnect }) => {
-    if (connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
-      log.error('Connection closed.');
-      if (shouldReconnect) setTimeout(() => startvenom(), 5000);
-    } else if (connection === 'open') {
-      const botNumber = venom.user.id.split("@")[0];
-      log.success(`Bot connected as ${chalk.green(botNumber)}`);
-      try { rl.close(); } catch (e) {}
+  venom.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
+  if (connection === 'close') {
+    const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
+    log.error('Connection closed.');
+    if (shouldReconnect) setTimeout(() => startvenom(), 5000);
+  } else if (connection === 'open') {
+    const botNumber = venom.user.id.split("@")[0];
+    log.success(`Bot connected as ${chalk.green(botNumber)}`);
+    try { rl.close(); } catch (e) {}
 
-      // ✅ Send DM to paired number after successful pairing
-setTimeout(async () => {
-  try {
-    const ownerJid = `${botNumber}@s.whatsapp.net`; // Create full JID
-
-    const message = `
+    // ✅ Send DM to paired number after successful pairing
+    setTimeout(async () => {
+      try {
+        const ownerJid = `${botNumber}@s.whatsapp.net`;
+        const message = `
 ╭─『 VENOM-XMD 』
 ┃Bot connected successfully
 ┃Developer: Dave
@@ -133,39 +132,33 @@ setTimeout(async () => {
 ┃Owner Number: ${botNumber}
 ╰───────────────
 `;
+        await venom.sendMessage(ownerJid, { text: message });
+      } catch (error) {
+        console.error("❌ Failed to send DM:", error);
+      }
+    }, 2000);
 
-    await venom.sendMessage(ownerJid, { text: message });
-  } catch (error) {
-    console.error("❌ Failed to send DM:", error);
-  }
-}, 2000);
-
-        // Auto-follow newsletter channel
-        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-        
-        try {
-          const channelId = "120363400480173280@newsletter";
-          await venom.newsletterFollow(channelId);
-          console.log(chalk.cyan("✅ Auto-followed newsletter channel"));
-        } catch (err) {
-          console.log(chalk.yellow(`⚠️ Newsletter follow failed: ${err.message}`));
-        }
-
-        await delay(2000);
-
-        // Auto-join group
-        try {
-          const groupCode = "LfTFxkUQ1H7Eg2D0vR3n6g";
-          await venom.groupAcceptInvite(groupCode);
-          console.log(chalk.cyan("✅ Auto-joined group"));
-        } catch (err) {
-          console.log(chalk.yellow(`⚠️ Group join failed: ${err.message}`));
-        }
-
-
-      venom.isPublic = true;
+    // ✅ Auto-follow newsletter channel (now with proper async)
+    try {
+      const channelId = "120363400480173280@newsletter";
+      await venom.newsletterFollow(channelId);
+      console.log(chalk.cyan("✅ Auto-followed newsletter channel"));
+    } catch (err) {
+      console.log(chalk.yellow(`⚠️ Newsletter follow failed: ${err.message}`));
     }
-  });
+
+    // ✅ Auto-join group
+    try {
+      const groupCode = "LfTFxkUQ1H7Eg2D0vR3n6g";
+      await venom.groupAcceptInvite(groupCode);
+      console.log(chalk.cyan("✅ Auto-joined group"));
+    } catch (err) {
+      console.log(chalk.yellow(`⚠️ Group join failed: ${err.message}`));
+    }
+
+    venom.isPublic = true;
+  }
+});
 
 const initAntiDelete = require('./antiDelete');
 venom.ev.on('connection.update', async (update) => {
