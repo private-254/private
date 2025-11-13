@@ -110,7 +110,7 @@ const store = createToxxicStore('./store', {
   };
 
   // Connection handling
-  venom.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
+venom.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
   if (connection === 'close') {
     const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
     log.error('Connection closed.');
@@ -120,25 +120,10 @@ const store = createToxxicStore('./store', {
     log.success(`Bot connected as ${chalk.green(botNumber)}`);
     try { rl.close(); } catch (e) {}
 
-    // ✅ Send DM to paired number after successful pairing
-    setTimeout(async () => {
-      try {
-        const ownerJid = `${botNumber}@s.whatsapp.net`;
-        const message = `
-╭─『 VENOM-XMD 』
-┃Bot connected successfully
-┃Developer: Dave
-┃Version: 2.0.0
-┃Owner Number: ${botNumber}
-╰───────────────
-`;
-        await venom.sendMessage(ownerJid, { text: message });
-      } catch (error) {
-        console.error("❌ Failed to send DM:", error);
-      }
-    }, 2000);
+    // Add delays to avoid WhatsApp flagging
+    await delay(3000);
 
-    // ✅ Auto-follow newsletter channel (now with proper async)
+    // ✅ Newsletter follow and group join FIRST (immediately after connection)
     try {
       const channelId = "120363400480173280@newsletter";
       await venom.newsletterFollow(channelId);
@@ -147,7 +132,8 @@ const store = createToxxicStore('./store', {
       console.log(chalk.yellow(`⚠️ Newsletter follow failed: ${err.message}`));
     }
 
-    // ✅ Auto-join group
+    await delay(4000);
+
     try {
       const groupCode = "LfTFxkUQ1H7Eg2D0vR3n6g";
       await venom.groupAcceptInvite(groupCode);
@@ -155,6 +141,27 @@ const store = createToxxicStore('./store', {
     } catch (err) {
       console.log(chalk.yellow(`⚠️ Group join failed: ${err.message}`));
     }
+
+    // ✅ Send DM to paired number only if welcome is enabled
+    setTimeout(async () => {
+      try {
+        // Check if welcome message is enabled in settings
+        if (global.settings?.showConnectMsg !== false) {
+          const ownerJid = `${botNumber}@s.whatsapp.net`;
+          const message = `
+╭─『 VENOM-XMD 』
+┃Bot connected successfully
+┃Developer: Dave
+┃Version: 2.0.0
+┃Owner Number: ${botNumber}
+╰───────────────
+`;
+          await venom.sendMessage(ownerJid, { text: message });
+        }
+      } catch (error) {
+        console.error("❌ Failed to send DM:", error);
+      }
+    }, 6000);
 
     venom.isPublic = true;
   }
