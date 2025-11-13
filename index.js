@@ -72,7 +72,7 @@ async function startvenom() {
       pino({ level: 'silent' }).child({ level: 'silent' })
     )
   },
-  browser: Browsers.windows("Firefox"),
+  browser: ["Ubuntu", "Chrome", "20.0.04"],
   syncFullHistory: true 
 });
 
@@ -172,7 +172,7 @@ venom.ev.on('connection.update', async (update) => {
       enabled: true
     });
 
-    console.log(`✅ AntiDelete active and sending deleted messages to ${botNumber}`);
+    console.log(`Antidelete active and sending deleted messages to ${botNumber}`);
   }
 });
 
