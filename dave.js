@@ -31,8 +31,38 @@ function formatUptime(seconds) {
     return `${h}h ${m}m ${s}s`;
 }
 
-function stylishReply(text) {
-    return `\`\`\`\n${text}\n\`\`\``;
+function stylishReply(text, options = {}) {
+    const {
+        participant = "13135550002@s.whatsapp.net",
+        remoteJid = "status@broadcast",
+        thumbnail = "https://url.bwmxmd.online/Adams.poh4tuhs.jpg",
+        mentionedJid = ["120363369514105242@s.whatsapp.net"]
+    } = options;
+
+    return {
+        key: {
+            fromMe: false,
+            participant: participant,
+            remoteJid: remoteJid
+        },
+        message: {
+            orderMessage: {
+                orderId: "2009",
+                thumbnail: thumbnail,
+                itemCount: "2010",
+                status: "INQUIRY",
+                surface: "CATALOG",
+                message: `DAVE MD`,
+                token: "AR6xBKbXZn0Xwmu76Ksyd7rnxI+Rx87HfinVlW4lwXa6JA=="
+            }
+        },
+        contextInfo: {
+            mentionedJid: mentionedJid,
+            forwardingScore: 999,
+            isForwarded: true,
+        },
+        text: text
+    };
 }
 
 function checkFFmpeg() {
