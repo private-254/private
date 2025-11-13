@@ -834,6 +834,7 @@ case 'help': {
 ┃ ✦ Host     : *${host}*
 ┃ ✦ Mode     : *${global.settings.public ? 'Public' : 'Private'}*
 ┗━━━━━━━━━━━━━━━━━━
+
 *${botName.toUpperCase()} CONTROL*
 ┣➤ ping
 ┣➤ public
