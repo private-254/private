@@ -865,13 +865,13 @@ case 'inboxmessage': {
 				
 // ================= SET MENU =================
             case 'setmenu': {
-  if (!isOwner) return reply(" Only the bot owner can use this command!");
+  if (!isOwner) return reply("⛔ Only the bot owner can use this command!");
 
   const fs = require('fs');
   const path = require('path');
   const settingsFile = path.join(__dirname, 'menuSettings.json');
 
-  // Ensure file exists
+  // Ensure file exists with default
   if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(settingsFile, JSON.stringify({ mode: 'text' }, null, 2));
   }
@@ -879,7 +879,7 @@ case 'inboxmessage': {
   const type = args[0]?.toLowerCase();
 
   if (!type || !['text', 'image', 'video'].includes(type)) {
-    return reply(` Usage:
+    return reply(`📋 Usage:
 .setmenu text
 .setmenu image
 .setmenu video
@@ -890,12 +890,14 @@ Current types:
 - video = send menu with a looping gif`);
   }
 
-  fs.writeFileSync(settingsFile, JSON.stringify({ mode: type }, null, 2));
+  // 🔧 FIX: Read existing settings first, then update only the mode
+  const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+  settings.mode = type;
+  fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
 
-  await reply(` Your Menu display updated successfully!\nNew mode: *${type.toUpperCase()}*`);
+  await reply(`✅ Your Menu display updated successfully!\nNew mode: *${type.toUpperCase()}*`);
   break;
 }
-
 // ================= SETMENU IMAGE=================
 case 'setmenuimage': {
   if (!isOwner) return reply(" bitch command for my owner only!");
