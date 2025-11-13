@@ -24,7 +24,6 @@ const colors = {
 };
 
 // =============== HELPERS ===============
-// =============== HELPERS ===============
 function formatUptime(seconds) {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -50,14 +49,22 @@ function createFakeContact() {
     };
 }
 
-// Main reply function (simple reply)
-async function reply(teks) {
-    return venom.sendMessage(m.chat, { text: teks }, { quoted: m });
-}
-
-// Stylish reply with contact message (potential blue badge)
-async function stylishReply(teks) {
-    return venom.sendMessage(m.chat, { text: teks }, { quoted: createFakeContact() });
+// Stylish text formatter (returns formatted text object)
+function stylishReply(text) {
+    return {
+        key: {
+            participants: "0@s.whatsapp.net",
+            remoteJid: "status@broadcast",
+            fromMe: false,
+            id: "VENOM-XMD-MENU"
+        },
+        message: {
+            contactMessage: {
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:VENOM XMD\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+            }
+        },
+        text: text
+    };
 }
 
 // React to message
