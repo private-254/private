@@ -24,6 +24,7 @@ const colors = {
 };
 
 // =============== HELPERS ===============
+// =============== HELPERS ===============
 function formatUptime(seconds) {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -49,8 +50,13 @@ function createFakeContact() {
     };
 }
 
-// Main reply function using contact message style
+// Main reply function (simple reply)
 async function reply(teks) {
+    return venom.sendMessage(m.chat, { text: teks }, { quoted: m });
+}
+
+// Stylish reply with contact message (potential blue badge)
+async function stylishReply(teks) {
     return venom.sendMessage(m.chat, { text: teks }, { quoted: createFakeContact() });
 }
 
@@ -70,7 +76,6 @@ function jidDecode(jid) {
     const [user, server] = jid.split(':');
     return { user, server };
 }
-
 // =============== MAIN FUNCTION ===============
 module.exports = async function handleCommand(venom, m, command,groupAdmins,isBotAdmins,groupMeta,config,prefix) {
 
