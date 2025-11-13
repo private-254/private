@@ -374,6 +374,80 @@ case 'sfile': {
   break;
 }
 
+
+case 'setbotname':
+case 'setname':
+case 'changebotname': {
+  if (!isOwner) return reply("⛔ Only the bot owner can use this command!");
+
+  const fs = require('fs');
+  const settingsFile = './menuSettings.json';
+
+  if (!fs.existsSync(settingsFile)) {
+    fs.writeFileSync(settingsFile, JSON.stringify({ mode: 'text' }, null, 2));
+  }
+
+  const newName = args.join(' ');
+
+  if (!newName) {
+    return reply(`📋 Usage:\n.setbotname <new name>\n\nExample:\n.setbotname VENOM-XMD\n.setbotname My Custom Bot`);
+  }
+
+  if (newName.length > 50) {
+    return reply("❌ Bot name is too long! Please keep it under 50 characters.");
+  }
+
+  // Read existing settings and add bot name
+  const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+  settings.botName = newName;
+  fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+
+  await reply(`✅ Bot name updated successfully!\nNew name: *${newName}*`);
+  break;
+}
+
+// ================= GET BOT NAME =================
+case 'getbotname':
+case 'botname':
+case 'checkbotname': {
+  const fs = require('fs');
+  const settingsFile = './menuSettings.json';
+
+  let botName = "VENOM-XMD"; // Default fallback
+
+  if (fs.existsSync(settingsFile)) {
+    try {
+      const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+      botName = settings.botName || config.BOT_NAME || global.settings?.botName || "VENOM-XMD";
+    } catch (err) {
+      botName = config.BOT_NAME || global.settings?.botName || "VENOM-XMD";
+    }
+  } else {
+    botName = config.BOT_NAME || global.settings?.botName || "VENOM-XMD";
+  }
+
+  await reply(`🤖 *Current Bot Name:* ${botName}\n\n💡 To change it, use:\n.setbotname <new name>`);
+  break;
+}
+
+// ================= RESET BOT NAME =================
+case 'resetbotname':
+case 'defaultbotname': {
+  if (!isOwner) return reply("⛔ Only the bot owner can use this command!");
+
+  const fs = require('fs');
+  const settingsFile = './menuSettings.json';
+
+  if (fs.existsSync(settingsFile)) {
+    const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+    delete settings.botName; // Remove custom bot name
+    fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+  }
+
+  const defaultName = config.BOT_NAME || global.settings?.botName || "VENOM-XMD";
+  await reply(`✅ Bot name reset to default!\nDefault name: *${defaultName}*`);
+  break;
+}
 // ================= CONVERT =================
 case 'convert': {
   try {
@@ -703,7 +777,10 @@ case 'help': {
 
   // Ensure menu settings file exists with text mode as default
   if (!fs.existsSync(settingsFile)) {
-    fs.writeFileSync(settingsFile, JSON.stringify({ mode: 'text' }, null, 2));
+    fs.writeFileSync(settingsFile, JSON.stringify({ 
+      mode: 'text',
+      botName: 'VENOM-XMD'
+    }, null, 2));
   }
 
   // Read settings and FORCE text as default if mode is missing or file is corrupted
@@ -712,7 +789,10 @@ case 'help': {
     menuSettings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
   } catch (err) {
     // If file is corrupted, reset to text default
-    menuSettings = { mode: 'text' };
+    menuSettings = { 
+      mode: 'text',
+      botName: 'VENOM-XMD'
+    };
     fs.writeFileSync(settingsFile, JSON.stringify(menuSettings, null, 2));
   }
 
@@ -720,8 +800,8 @@ case 'help': {
   const imageUrl = menuSettings.imageUrl;
   const videoUrl = menuSettings.videoUrl;
 
-  // Get bot name from config/settings
-  const botName = config.BOT_NAME || global.settings?.botName || "VENOM-XMD";
+  // 🔧 FIX: Get bot name ONLY from menuSettings.json, then fallback to defaults
+  const botName = menuSettings.botName || config.BOT_NAME || global.settings?.botName || "VENOM-XMD";
 
   const usersFile = path.join(__dirname, 'davelib', 'users.json');
   if (!fs.existsSync(usersFile)) fs.writeFileSync(usersFile, JSON.stringify([]));
@@ -743,7 +823,8 @@ case 'help': {
   const host = detectPlatform(); 
 
   const menuText = `
- → ${botName}
+┏━━━━━━━━━━━━━━━━━━━
+┃ √ ${botName}
 ┃ ✦ BotType  : *plugins+case*
 ┃ ✦ Version  : *1.0.0*
 ┃ ✦ Uptime   : *${uptimeFormatted}*
@@ -752,8 +833,7 @@ case 'help': {
 ┃ ✦ Commands : *${totalCommands}*
 ┃ ✦ Host     : *${host}*
 ┃ ✦ Mode     : *${global.settings.public ? 'Public' : 'Private'}*
-┗➤
-
+┗━━━━━━━━━━━━━━━━━━
 *${botName.toUpperCase()} CONTROL*
 ┣➤ ping
 ┣➤ public
