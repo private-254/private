@@ -10,7 +10,7 @@ const path = require('path');
 const chalk = require('chalk');
 const os = require('os');
 const { writeFile } = require('./davelib/utils');
-const { saveSettings,loadSettings } = require('./davesettingmanager.js');
+const { saveSettings,loadSettings } = require('./davesettingmanager');
 const { fetchJson } = require('./davelib/fetch'); 
 // =============== COLORS ===============
 const colors = {
@@ -252,7 +252,7 @@ if (isGroup && global.settings?.antibadword?.[from]?.enabled) {
       }
 
       // Save updated warnings
-      const { saveSettings } = require('./settingsManager');
+      const { saveSettings } = require('./davesettingmanager');
       saveSettings(global.settings);
     }
   }
