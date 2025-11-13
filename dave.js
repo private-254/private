@@ -81,6 +81,7 @@ const isOwner = senderJid === botNumber;
     const text = args.join(" ");
 
     const time = new Date().toLocaleTimeString();
+   
 
 
 if (m.message) {
