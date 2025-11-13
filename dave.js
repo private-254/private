@@ -395,6 +395,7 @@ case 'calc': {
 
             // ================= MENU =================
 
+  
   case 'menu':
 case 'help': {
   const fs = require('fs');
@@ -402,21 +403,30 @@ case 'help': {
   const path = require('path');
   const process = require('process');
 
-  const settingsFile = path.join(__dirname, 'menuSettings.json');
+  // 🔧 FIX: Simple path since both files are in root
+  const settingsFile = './menuSettings.json';
 
   // Ensure menu settings file exists with text mode as default
   if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(settingsFile, JSON.stringify({ mode: 'text' }, null, 2));
   }
 
-  // Get menu settings, default to text mode if not set
-  let menuSettings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
-  const mode = menuSettings.mode || 'text'; // Default to text if not set
+  // Read settings and FORCE text as default if mode is missing or file is corrupted
+  let menuSettings;
+  try {
+    menuSettings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+  } catch (err) {
+    // If file is corrupted, reset to text default
+    menuSettings = { mode: 'text' };
+    fs.writeFileSync(settingsFile, JSON.stringify(menuSettings, null, 2));
+  }
+
+  const mode = menuSettings.mode || 'text';
   const imageUrl = menuSettings.imageUrl;
   const videoUrl = menuSettings.videoUrl;
 
   // Get bot name from config/settings
-  const botName = config.BOT_NAME || global.settings?.botName || "VENOM-XMD"; // Fallback to "Dave AI"
+  const botName = config.BOT_NAME || global.settings?.botName || "VENOM-XMD";
 
   const usersFile = path.join(__dirname, 'davelib', 'users.json');
   if (!fs.existsSync(usersFile)) fs.writeFileSync(usersFile, JSON.stringify([]));
@@ -437,7 +447,6 @@ case 'help': {
   const totalUsers = users.length;
   const host = detectPlatform(); 
 
-  // Updated menu text with dynamic bot name
   const menuText = `
  → ${botName}
 ┃ ✦ BotType  : *plugins+case*
@@ -776,20 +785,21 @@ case 'help': {
 ┗➤ Bible
 `;
 
-  // Send based on selected mode - DEFAULT TO TEXT MODE
-  if (mode === 'text' || !mode) {
-    await venom.sendMessage(from, { text: stylishReply(menuText) }, { quoted: m });
-  } else if (mode === 'image') {
+  // ✅ Always send text as default, only use image/video if explicitly set AND URLs exist
+  if (mode === 'image' && imageUrl) {
     await venom.sendMessage(from, {
-      image: { url: imageUrl || 'https://n.uguu.se/HrdWierP.jpg' },
+      image: { url: imageUrl },
       caption: stylishReply(menuText)
     }, { quoted: m });
-  } else if (mode === 'video') {
+  } else if (mode === 'video' && videoUrl) {
     await venom.sendMessage(from, {
-      video: { url: videoUrl || 'https://files.catbox.moe/kl9gn6.mp4' },
+      video: { url: videoUrl },
       caption: stylishReply(menuText),
       gifPlayback: true
     }, { quoted: m });
+  } else {
+    // ✅ DEFAULT: Always fallback to text
+    await venom.sendMessage(from, { text: stylishReply(menuText) }, { quoted: m });
   }
 
   break;
