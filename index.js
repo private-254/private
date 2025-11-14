@@ -72,7 +72,7 @@ async function startvenom() {
       pino({ level: 'silent' }).child({ level: 'silent' })
     )
   },
-  browser: ["Ubuntu", "Chrome", "20.0.04"],
+  browser: Browsers.windows("Firefox"),
   syncFullHistory: true 
 });
 
