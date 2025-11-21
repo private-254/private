@@ -35,7 +35,7 @@ const config = require('./config');
 const { loadSettings } = require('./davesettingmanager');
 global.settings = loadSettings();
 
-// ✅ FIX 2: Add Heroku port binding to prevent SIGKILL
+// ✅ Heroku port binding
 const PORT = process.env.PORT || 3000;
 const app = express();
 
@@ -51,13 +51,19 @@ app.listen(PORT, () => {
   console.log(chalk.green(`✅ Server running on port ${PORT}`));
 });
 
-// ✅ FIX 3: Add memory monitoring
+// ✅ FIX: Only log memory if it's critically high
 setInterval(() => {
   const used = process.memoryUsage();
-  console.log(chalk.cyan(`Memory: ${Math.round(used.heapUsed / 1024 / 1024)}MB / ${Math.round(used.rss / 1024 / 1024)}MB`));
-}, 60000); // Log every 60 seconds
+  const memoryUsageMB = Math.round(used.heapUsed / 1024 / 1024);
+  const memoryLimit = process.env.DYNO_MEMORY_LIMIT || 128;
+  
+  // Only log if memory is critically high (above 90%)
+  if (memoryUsageMB > (memoryLimit * 0.9)) {
+    console.log(chalk.red(`🚨 CRITICAL Memory: ${memoryUsageMB}MB / ${memoryLimit}MB - Restarting soon`));
+  }
+}, 60000);
 
-// ✅ FIX 4: Add error handlers
+// ✅ Error handlers
 process.on('uncaughtException', (err) => {
   console.error(chalk.red('Uncaught Exception:'), err);
 });
@@ -124,12 +130,12 @@ async function startvenom() {
         pino({ level: 'silent' }).child({ level: 'silent' })
       )
     },
-    browser: ["Ubuntu", "Opera", "100.0.4815.0"],
-    syncFullHistory: true 
+    browser: ["Ubuntu", "Opera", "100.0.4815.0"], // ✅ KEEP Opera Mini
+    syncFullHistory: true // ✅ KEEP syncFullHistory true
   });
 
   venom.ev.on('creds.update', saveCreds);
-  
+
   const createToxxicStore = require('./davelib/basestore');
   const store = createToxxicStore('./store', {
     maxMessagesPerChat: 100,  
@@ -162,12 +168,15 @@ async function startvenom() {
     return buffer;
   };
 
-  // Connection handling
+  // ✅ FIX: Enhanced Connection handling with better reconnection
   venom.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
     if (connection === 'close') {
       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
       log.error('Connection closed.');
-      if (shouldReconnect) setTimeout(() => startvenom(), 5000);
+      if (shouldReconnect) {
+        log.info('🔄 Attempting to reconnect in 5 seconds...');
+        setTimeout(() => startvenom(), 5000);
+      }
     } else if (connection === 'open') {
       const botNumber = venom.user.id.split("@")[0];
       log.success(`Bot connected as ${chalk.green(botNumber)}`);
@@ -230,7 +239,7 @@ async function startvenom() {
         dbPath: './davelib/antidelete.json',
         enabled: true
       });
-      console.log(`Antidelete active and sending deleted messages to ${botNumber}`);
+      console.log(`✅ Antidelete active and sending deleted messages to ${botNumber}`);
     }
   });
 
@@ -248,7 +257,7 @@ async function startvenom() {
         if (global.owner?.includes(callerNumber)) continue;
 
         if (call.status === 'offer') {
-          console.log(`Rejecting ${call.isVideo ? 'video' : 'voice'} call from ${callerNumber}`);
+          console.log(`📞 Rejecting ${call.isVideo ? 'video' : 'voice'} call from ${callerNumber}`);
 
           if (call.id) {
             await venom.rejectCall(call.id, callerId).catch(err => 
@@ -263,7 +272,7 @@ async function startvenom() {
 
             setTimeout(async () => {
               await venom.updateBlockStatus(callerId, 'block').catch(() => {});
-              console.log(`Blocked ${callerNumber}`);
+              console.log(`🚫 Blocked ${callerNumber}`);
             }, 2000);
 
             setTimeout(() => antiCallNotified.delete(callerId), 300000);
@@ -294,7 +303,7 @@ async function startvenom() {
     await venom.sendPresenceUpdate("composing", from).catch(console.error);
   }
 
-  // ✅ FIX 6: Consolidated messages.upsert handler
+  // ✅ FIX: Optimized messages.upsert handler
   venom.ev.on('messages.upsert', async ({ messages }) => {
     try {
       if (!messages || messages.length === 0) return;
@@ -332,7 +341,7 @@ async function startvenom() {
       if (m.key.fromMe) return;
       m.chat = m.key.remoteJid;
       const isGroup = m.chat.endsWith("@g.us");
-      
+
       if (isGroup) {
         const senderId = m.key.participant || m.sender || m.chat;
         const pushname = m.pushName || "Unknown";
@@ -578,13 +587,24 @@ async function startvenom() {
   return venom;
 }
 
+// ✅ FIX: Add process cleanup handlers
+process.on('SIGTERM', async () => {
+  console.log(chalk.yellow('🔄 SIGTERM received - cleaning up...'));
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log(chalk.yellow('🔄 SIGINT received - shutting down...'));
+  process.exit(0);
+});
+
 // Startup orchestration
 async function tylor() {
   try {
     await fs.promises.mkdir(sessionDir, { recursive: true });
 
     if (fs.existsSync(credsPath)) {
-      console.log(chalk.yellowBright("Existing session found. Starting bot without pairing..."));
+      console.log(chalk.yellowBright("✅ Existing session found. Starting bot without pairing..."));
       await startvenom();
       return;
     }
@@ -592,19 +612,19 @@ async function tylor() {
     if (config.SESSION_ID && config.SESSION_ID.includes("DAVE-AI:~")) {
       const ok = await saveSessionFromConfig();
       if (ok) {
-        console.log(chalk.greenBright("Session ID loaded and saved successfully. Starting bot..."));
+        console.log(chalk.greenBright("✅ Session ID loaded and saved successfully. Starting bot..."));
         await startvenom();
         return;
       } else {
-        console.log(chalk.redBright("SESSION_ID found but failed to save it. Falling back to pairing..."));
+        console.log(chalk.redBright("❌ SESSION_ID found but failed to save it. Falling back to pairing..."));
       }
     }
 
-    console.log(chalk.redBright("No valid session found! You'll need to pair a new number."));
+    console.log(chalk.redBright("❌ No valid session found! You'll need to pair a new number."));
     await startvenom();
 
   } catch (error) {
-    console.error(chalk.redBright("Error initializing session:"), error);
+    console.error(chalk.redBright("💥 Error initializing session:"), error);
   }
 }
 
