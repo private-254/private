@@ -32,6 +32,9 @@ const handleCommand = require('./dave');
 const config = require('./config');
 const { loadSettings } = require('./davesettingmanager');
 global.settings = loadSettings();
+const app = express();
+const PORT = config.PORT || 3000;
+
 
 
 function delay(ms) {
@@ -612,3 +615,9 @@ async function tylor() {
 }
 
 tylor();
+
+app.get("/", (req, res) => {
+  res.send("VENOM-XMD is running!");
+});
+
+app.listen(PORT, () => {});
