@@ -87,13 +87,14 @@ const store = createToxxicStore('./store', {
     store.bind(venom.ev);
 
   // Pairing code if not registered
-  if (!venom.authState.creds.registered && (!config.SESSION_ID || config.SESSION_ID === "")) {
+    // Pairing code if not registered
+  if (! venom.authState.creds.registered && (!config.SESSION_ID || config.SESSION_ID === "")) {
     try {
       const phoneNumber = await question(chalk.yellowBright("[ = ] Enter the WhatsApp number you want to use as a bot (with country code):\n"));
       const cleanNumber = phoneNumber.replace(/[^0-9]/g, '');
       console.clear();
-
-      const pairCode = await venom.requestPairingCode(cleanNumber);
+     const custom = "DAVEBOTS"; // must
+      const pairCode = await trashcore.requestPairingCode(cleanNumber,custom);
       log.info(`Enter this code on your phone to pair: ${chalk.green(pairCode)}`);
       log.info("⏳ Wait a few seconds and approve the pairing on your phone...");
     } catch (err) {
