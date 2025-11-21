@@ -31,6 +31,11 @@ const config = require('./config');
 const { loadSettings } = require('./davesettingmanager');
 global.settings = loadSettings();
 
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Console helpers
 const log = {
   info: (msg) => console.log(chalk.cyanBright(`[INFO] ${msg}`)),
