@@ -3,15 +3,28 @@ const pino = require('pino');
 const readline = require('readline');
 const path = require('path');
 const chalk = require('chalk');
-const {
-  default: makeWASocket,
-  useMultiFileAuthState,Browsers, 
-  makeCacheableSignalKeyStore,
-  fetchLatestBaileysVersion,
-  makeInMemoryStore,
-  downloadContentFromMessage,
-  jidDecode
-} = require('@whiskeysockets/baileys');
+const { 
+    default: makeWASocket, 
+    prepareWAMessageMedia, 
+    useMultiFileAuthState, 
+    DisconnectReason, 
+    fetchLatestBaileysVersion, 
+    makeInMemoryStore, 
+    generateWAMessageFromContent, 
+    generateWAMessageContent, 
+    jidDecode, 
+    proto, 
+    relayWAMessage, 
+    getContentType, 
+    getAggregateVotesInPollMessage, 
+    downloadContentFromMessage, 
+    fetchLatestWaWebVersion, 
+    InteractiveMessage, 
+    makeCacheableSignalKeyStore, 
+    Browsers, 
+    generateForwardMessageContent, 
+    MessageRetryMap 
+} = require("@whiskeysockets/baileys");
 
 const handleCommand = require('./dave');
 const config = require('./config');
