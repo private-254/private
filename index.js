@@ -40,7 +40,7 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 
 app.get('/', (req, res) => {
-  res.send('VENOM-XMD Bot is running! ✅');
+  res.send('DAVE-MD Bot is running! ✅');
 });
 
 app.get('/health', (req, res) => {
@@ -127,9 +127,6 @@ async function startvenom() {
     browser: ["Ubuntu", "Opera", "100.0.4815.0"],
     syncFullHistory: true 
   });
-
-  // ✅ FIX 5: Set max listeners on venom socket
-  venom.ev.setMaxListeners(20);
 
   venom.ev.on('creds.update', saveCreds);
   
