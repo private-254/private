@@ -34,7 +34,8 @@ global.settings = loadSettings();
 const app = express();
 const PORT = config.PORT || 3000;
 
-
+// Increase max listeners globally to prevent warnings
+require('events').EventEmitter.defaultMaxListeners = 20;
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -99,10 +100,6 @@ async function startvenom() {
   browser: ["Ubuntu", "Opera", "100.0.4815.0"],
   syncFullHistory: true 
 });
-
-  // FIX: Increase max listeners to prevent warnings
-  venom.setMaxListeners(20);
-  venom.ev.setMaxListeners(20);
 
   venom.ev.on('creds.update', saveCreds);
   const createToxxicStore = require('./davelib/basestore');
@@ -272,6 +269,7 @@ venom.ev.on('connection.update', async (update) => {
     await venom.sendPresenceUpdate("composing", from).catch(console.error);
   }
 
+  // FIX: Single messages.upsert listener to prevent MaxListeners warning
   venom.ev.on('messages.upsert', async ({ messages }) => {
     const m = messages[0];
     if (!m.message) return;
@@ -280,34 +278,133 @@ venom.ev.on('connection.update', async (update) => {
     await autoRecordPrivate(m);
     await autoTypingPrivate(m);
 
-
-venom.ev.on('messages.upsert', async chatUpdate => {
     try {
-      if (!chatUpdate.messages || chatUpdate.messages.length === 0) return;
-      const mek = chatUpdate.messages[0];
-
-      if (!mek.message) return;
-      mek.message = Object.keys(mek.message)[0] === 'ephemeralMessage' 
-        ? mek.message.ephemeralMessage.message 
-        : mek.message;
-
-      if (global.settings.autoviewstatus && mek.key && mek.key.remoteJid === 'status@broadcast') {
-        await venom.readMessages([mek.key]);
+      if (global.settings.autoviewstatus && m.key && m.key.remoteJid === 'status@broadcast') {
+        await venom.readMessages([m.key]);
       }
 
-      if (global.settings.autoreactstatus && mek.key && mek.key.remoteJid === 'status@broadcast') {
+      if (global.settings.autoreactstatus && m.key && m.key.remoteJid === 'status@broadcast') {
         let emoji = [ "💙","❤️", "🌚","😍", "✅" ];
         let sigma = emoji[Math.floor(Math.random() * emoji.length)];
         venom.sendMessage(
           'status@broadcast',
-          { react: { text: sigma, key: mek.key } },
-          { statusJidList: [mek.key.participant] },
+          { react: { text: sigma, key: m.key } },
+          { statusJidList: [m.key.participant] },
         );
       }
     } catch (err) {
       console.error('Status auto-react/view error:', err);
     }
-  })
+
+    // Group stats handling
+    if (m?.message && !m.key.fromMe) {
+      const chat = m.key.remoteJid;
+      const isGroup = chat.endsWith("@g.us");
+      
+      if (isGroup) {
+        const senderId = m.key.participant || m.sender || chat;
+        const pushname = m.pushName || "Unknown";
+
+        const statsPath = path.join(__dirname, "davelib/groupStats.json");
+        
+        if (!fs.existsSync(statsPath)) {
+          fs.writeFileSync(statsPath, JSON.stringify({}, null, 2));
+        }
+
+        let groupStats = {};
+        try {
+          const data = fs.readFileSync(statsPath, "utf8");
+          groupStats = JSON.parse(data || "{}");
+        } catch (err) {
+          console.error("❌ Failed to read groupStats.json:", err);
+          groupStats = {};
+        }
+
+        if (!groupStats[chat]) {
+          groupStats[chat] = {
+            groupName: chat.split("@")[0],
+            totalMessages: 0,
+            members: {}
+          };
+        }
+
+        const groupData = groupStats[chat];
+
+        if (!groupData.members[senderId]) {
+          groupData.members[senderId] = {
+            name: pushname,
+            messages: 0,
+            lastMessage: null
+          };
+        }
+
+        groupData.totalMessages++;
+        groupData.members[senderId].messages++;
+        groupData.members[senderId].lastMessage = new Date().toISOString();
+
+        // Debounced save
+        if (global.statsSaveTimeout) clearTimeout(global.statsSaveTimeout);
+        global.statsSaveTimeout = setTimeout(() => {
+          try {
+            fs.writeFileSync(statsPath, JSON.stringify(groupStats, null, 2));
+          } catch (err) {
+            console.error("❌ Failed to save group stats:", err);
+          }
+        }, 5000);
+      }
+    }
+
+    // Command handling
+    const from = m.key.remoteJid;
+    const sender = m.key.participant || from;
+    const isGroup = from.endsWith('@g.us');
+    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+
+    // Extract message body
+    let body =
+      m.message.conversation ||
+      m.message.extendedTextMessage?.text ||
+      m.message.imageMessage?.caption ||
+      m.message.videoMessage?.caption ||
+      m.message.documentMessage?.caption || '';
+    body = body.trim();
+    if (!body) return;
+
+    // Load prefix settings
+    const prefixSettingsPath = './davelib/prefixSettings.json';
+    let prefixSettings = fs.existsSync(prefixSettingsPath)
+      ? JSON.parse(fs.readFileSync(prefixSettingsPath, 'utf8'))
+      : { prefix: '.', defaultPrefix: '.' };
+
+    let prefix = prefixSettings.prefix || '';
+
+    // Skip if prefix is required and message doesn't start with it
+    if (prefix !== '' && !body.startsWith(prefix)) return;
+
+    // Remove prefix if present
+    const bodyWithoutPrefix = prefix === '' ? body : body.slice(prefix.length);
+
+    // Split command and arguments
+    const args = bodyWithoutPrefix.trim().split(/ +/);
+    const command = args.shift().toLowerCase();
+
+    const groupMeta = isGroup ? await venom.groupMetadata(from).catch(() => null) : null;
+    const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(p => p.id) : [];
+    const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
+
+    const wrappedMsg = {
+      ...m,
+      chat: from,
+      sender,
+      isGroup,
+      body,
+      type: Object.keys(m.message)[0],
+      quoted: m.message?.extendedTextMessage?.contextInfo?.quotedMessage || null,
+      reply: (text) => venom.sendMessage(from, { text }, { quoted: m })
+    };
+
+    await handleCommand(venom, wrappedMsg, command, args, isGroup, isAdmin, groupAdmins, groupMeta, jidDecode, config);
+  });
 
 
 
@@ -331,165 +428,69 @@ venom.getName = async (jid) => {
   }
 };
 
-const statsPath = path.join(__dirname, "davelib/groupStats.json");
-
-// ✅ Ensure the file exists
-if (!fs.existsSync(statsPath)) {
-  fs.writeFileSync(statsPath, JSON.stringify({}, null, 2));
-}
-
-let groupStats = {};
-try {
-  const data = fs.readFileSync(statsPath, "utf8");
-  groupStats = JSON.parse(data || "{}");
-} catch (err) {
-  console.error("❌ Failed to read groupStats.json:", err);
-  groupStats = {};
-}
-
-// 🧠 Debounce file writes (avoid writing too often)
-let saveTimeout;
-function saveStats() {
-  clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(() => {
-    try {
-      fs.writeFileSync(statsPath, JSON.stringify(groupStats, null, 2));
-    } catch (err) {
-      console.error("❌ Failed to save group stats:", err);
-    }
-  }, 5000);
-}
-
-venom.ev.on("messages.upsert", async ({ messages }) => {
-  const m = messages[0];
-  if (!m?.message) return; // skip empty/system messages
-  if (m.key.fromMe) return; // skip bot messages
-
-  m.chat = m.key.remoteJid;
-  const isGroup = m.chat.endsWith("@g.us");
-  const chatType = isGroup ? "Group" : "Private";
-  const senderId = m.key.participant || m.sender || m.chat;
-  const pushname = m.pushName || "Unknown";
-
-  // ✅ Use local fallback for name (no metadata fetch)
-  const chatName = isGroup ? m.chat.split("@")[0] : pushname;
-
-  // ✅ Only handle group messages
-  if (!isGroup) return;
-
-  // Initialize group if not exist
-  if (!groupStats[m.chat]) {
-    groupStats[m.chat] = {
-      groupName: chatName,
-      totalMessages: 0,
-      members: {}
-    };
-  }
-
-  const groupData = groupStats[m.chat];
-
-  // Update name if it changes (optional)
-  if (groupData.groupName !== chatName) {
-    groupData.groupName = chatName;
-  }
-
-  // Initialize user if not exist
-  if (!groupData.members[senderId]) {
-    groupData.members[senderId] = {
-      name: pushname,
-      messages: 0,
-      lastMessage: null
-    };
-  }
-
-  // Increment counters
-  groupData.totalMessages++;
-  groupData.members[senderId].messages++;
-  groupData.members[senderId].lastMessage = new Date().toISOString();
-
-  saveStats();
-});
-
+// FIX: Single group-participants.update listener to prevent MaxListeners warning
 venom.ev.on('group-participants.update', async (update) => {
   try {
-    const fs = require('fs');
-    const path = './davelib/welcome.json';
     const { id, participants, action } = update;
 
-    const groupMetadata = await venom.groupMetadata(id);
-    const groupName = groupMetadata.subject;
+    // Welcome messages
+    if (action === 'add') {
+      const welcomePath = './davelib/welcome.json';
+      let welcomeData = {};
+      if (fs.existsSync(welcomePath)) welcomeData = JSON.parse(fs.readFileSync(welcomePath));
+      
+      if (welcomeData[id]) {
+        const groupMetadata = await venom.groupMetadata(id);
+        const groupName = groupMetadata.subject;
 
-    // Load toggle data
-    let toggleData = {};
-    if (fs.existsSync(path)) toggleData = JSON.parse(fs.readFileSync(path));
-    if (!toggleData[id]) return; // Skip if welcome off
+        for (const user of participants) {
+          const ppUrl = await venom
+            .profilePictureUrl(user, 'image')
+            .catch(() => 'https://files.catbox.moe/xr70w7.jpg');
 
-    for (const user of participants) {
-      if (action === 'add') {
-        const ppUrl = await venom
-          .profilePictureUrl(user, 'image')
-          .catch(() => 'https://files.catbox.moe/xr70w7.jpg'); // default image
+          const name = (await venom.onWhatsApp(user))[0]?.notify || user.split('@')[0];
 
-        const name =
-          (await venom.onWhatsApp(user))[0]?.notify ||
-          user.split('@')[0];
-
-        await venom.sendMessage(id, {
-          image: { url: ppUrl },
-          caption: `🔥 *Welcome @${user.split('@')[0]}!*\n🎉 Glad to have you in *${groupName}*!`,
-          contextInfo: { mentionedJid: [user] }
-        });
+          await venom.sendMessage(id, {
+            image: { url: ppUrl },
+            caption: `🔥 *Welcome @${user.split('@')[0]}!*\n🎉 Glad to have you in *${groupName}*!`,
+            contextInfo: { mentionedJid: [user] }
+          });
+        }
       }
     }
-  } catch (err) {
-    console.error('💥 Welcome Error:', err);
-  }
-});
 
-venom.ev.on('group-participants.update', async (update) => {
-  try {
-    const fs = require('fs');
-    const path = './davelib/goodbye.json';
-    const { id, participants, action } = update;
+    // Goodbye messages
+    if (action === 'remove') {
+      const goodbyePath = './davelib/goodbye.json';
+      let goodbyeData = {};
+      if (fs.existsSync(goodbyePath)) goodbyeData = JSON.parse(fs.readFileSync(goodbyePath));
+      
+      if (goodbyeData[id]) {
+        const groupMetadata = await venom.groupMetadata(id);
+        const groupName = groupMetadata.subject;
 
-    const groupMetadata = await venom.groupMetadata(id);
-    const groupName = groupMetadata.subject;
-    let toggleData = {};
-    if (fs.existsSync(path)) toggleData = JSON.parse(fs.readFileSync(path));
-    if (!toggleData[id]) return;
+        for (const user of participants) {
+          const ppUrl = await venom
+            .profilePictureUrl(user, 'image')
+            .catch(() => 'https://files.catbox.moe/xr70w7.jpg');
 
-    for (const user of participants) {
-      if (action === 'remove') {
-        const ppUrl = await venom
-          .profilePictureUrl(user, 'image')
-          .catch(() => 'https://files.catbox.moe/xr70w7.jpg'); // default image
+          const name = (await venom.onWhatsApp(user))[0]?.notify || user.split('@')[0];
 
-        const name =
-          (await venom.onWhatsApp(user))[0]?.notify ||
-          user.split('@')[0];
-
-        await venom.sendMessage(id, {
-          image: { url: ppUrl },
-          caption: `😆 *${name}* (@${user.split('@')[0]}) has left *${groupName}*.\n💐 why am I even bothered you presence was unrecognized 🤌fuck you!`,
-          contextInfo: { mentionedJid: [user] }
-        });
+          await venom.sendMessage(id, {
+            image: { url: ppUrl },
+            caption: `😆 *${name}* (@${user.split('@')[0]}) has left *${groupName}*.\n💐 why am I even bothered you presence was unrecognized 🤌fuck you!`,
+            contextInfo: { mentionedJid: [user] }
+          });
+        }
       }
     }
-  } catch (err) {
-    console.error('💥 Goodbye Error:', err);
-  }
-});
 
-venom.ev.on('group-participants.update', async (update) => {
-  try {
-    const { id, participants, action } = update;
+    // AntiPromote/AntiDemote
     const chatId = id;
     const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
-
-    // Load Settings
     const settings = loadSettings();
 
-    // 🧩 Handle AntiPromote
+    // Handle AntiPromote
     if (action === 'promote' && settings.antipromote?.[chatId]?.enabled) {
       const groupSettings = settings.antipromote[chatId];
 
@@ -509,7 +510,7 @@ venom.ev.on('group-participants.update', async (update) => {
       }
     }
 
-    // 🧩 Handle AntiDemote
+    // Handle AntiDemote
     if (action === 'demote' && settings.antidemote?.[chatId]?.enabled) {
       const groupSettings = settings.antidemote[chatId];
 
@@ -530,60 +531,9 @@ venom.ev.on('group-participants.update', async (update) => {
     }
 
   } catch (err) {
-    console.error("AntiPromote/AntiDemote error:", err);
+    console.error('Group participants update error:', err);
   }
 });
-    // Pass to command handler
-const prefixSettingsPath = './davelib/prefixSettings.json';
-
-// Load prefix dynamically
-let prefixSettings = fs.existsSync(prefixSettingsPath)
-  ? JSON.parse(fs.readFileSync(prefixSettingsPath, 'utf8'))
-  : { prefix: '.', defaultPrefix: '.' };
-
-let prefix = prefixSettings.prefix || ''; // fallback to '' if no prefix
-
-const from = m.key.remoteJid;
-const sender = m.key.participant || from;
-const isGroup = from.endsWith('@g.us');
-const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
-
-// Extract message body
-let body =
-  m.message.conversation ||
-  m.message.extendedTextMessage?.text ||
-  m.message.imageMessage?.caption ||
-  m.message.videoMessage?.caption ||
-  m.message.documentMessage?.caption || '';
-body = body.trim();
-if (!body) return;
-
-// Skip if prefix is required and message doesn't start with it
-if (prefix !== '' && !body.startsWith(prefix)) return;
-
-// Remove prefix if present
-const bodyWithoutPrefix = prefix === '' ? body : body.slice(prefix.length);
-
-// Split command and arguments
-const args = bodyWithoutPrefix.trim().split(/ +/);
-const command = args.shift().toLowerCase();
-    const groupMeta = isGroup ? await venom.groupMetadata(from).catch(() => null) : null;
-    const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(p => p.id) : [];
-    const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
-
-    const wrappedMsg = {
-      ...m,
-      chat: from,
-      sender,
-      isGroup,
-      body,
-      type: Object.keys(m.message)[0],
-      quoted: m.message?.extendedTextMessage?.contextInfo?.quotedMessage || null,
-      reply: (text) => venom.sendMessage(from, { text }, { quoted: m })
-    };
-
-    await handleCommand(venom, wrappedMsg, command, args, isGroup, isAdmin, groupAdmins, groupMeta, jidDecode, config);
-  });
 
   return venom;
 }
