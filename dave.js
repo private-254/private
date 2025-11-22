@@ -70,6 +70,11 @@ function stylishReply(text, sender) {
     };
 }
 
+// Simple text reply function
+function simpleReply(text) {
+    return { text: text };
+}
+
 // React to message - FIXED: Now accepts venom and m as parameters
 const reaction = async (venom, m, emoji) => {
     return venom.sendMessage(m.chat, { react: { text: emoji, key: m.key } });
@@ -110,8 +115,9 @@ module.exports = async function handleCommand(venom, m, command,groupAdmins,isBo
     const senderJid = m.key.participant || m.key.remoteJid;
     const isOwner = senderJid === botNumber;
     
-    // FIXED: Updated reply function to use the corrected stylishReply
-    const reply = (text) => venom.sendMessage(from, { text: stylishReply(text, sender).text }, { quoted: m });
+    // FIXED: Reply functions - use simple text for normal replies
+    const reply = (text) => venom.sendMessage(from, { text: text }, { quoted: m });
+    const stylishReplyMsg = (text) => venom.sendMessage(from, stylishReply(text, sender), { quoted: m });
     
     const isGroup = from.endsWith('@g.us'); // true if group
     const ctx = m.message.extendedTextMessage?.contextInfo || {};
@@ -327,7 +333,8 @@ ${isGroupMsg ? ` GROUP: ${groupName}` : ""}
             // ================= PING =================
             case 'ping': {
                 const start = Date.now();
-                const sent = await venom.sendMessage(m.chat, { text: 'Checking connection...' }, { quoted: m });
+                // FIXED: Use simple reply instead of stylish reply for basic commands
+                const sent = await reply('Checking connection...');
                 const latency = Date.now() - start;
 
                 await venom.sendMessage(m.chat, { text: `venom-xmd → Speed: ${latency}ms`, edit: sent.key }, { quoted: m });
