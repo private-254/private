@@ -245,20 +245,28 @@ venom.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
   }
 });
 
-// ANTIDELETE (unchanged)
+// ====================== FIXED ANTIDELETE ======================
 const initAntiDelete = require('./antiDelete');
+
 venom.ev.on('connection.update', async (update) => {
   const { connection } = update;
+
   if (connection === 'open') {
-    const botNumber = venom.user.id.split(':')[0] + '@s.whatsapp.net';
 
-    initAntiDelete(venom, {
-      botNumber,
-      dbPath: './davelib/antidelete.json',
-      enabled: true
-    });
+    // only run once
+    if (!global.antideleteInitialized) {
+      const botNumber = venom.user.id.split(':')[0] + '@s.whatsapp.net';
 
-    console.log(`Antidelete active and sending deleted messages to ${botNumber}`);
+      initAntiDelete(venom, {
+        botNumber,
+        dbPath: './davelib/antidelete.json',
+        enabled: true
+      });
+
+      console.log(`🛡️ Antidelete activated and sending logs to ${botNumber}`);
+      global.antideleteInitialized = true;
+    }
+
   }
 });
 
