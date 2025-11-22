@@ -36,6 +36,32 @@ global.settings = loadSettings();
 const app = express();
 const PORT = config.PORT || 3000;
 
+// Import lightweight store
+const store = require('./davelib/lightweight_store')
+
+// Initialize store
+store.readFromFile()
+const settings = require('./settings')
+setInterval(() => store.writeToFile(), settings.storeWriteInterval || 10000)
+
+// Memory optimization - Force garbage collection if available
+setInterval(() => {
+    if (global.gc) {
+        global.gc()
+        console.log('🧹 Garbage collection completed')
+    }
+}, 60_000) // every 1 minute
+
+// Memory monitoring - Restart if RAM gets too high
+setInterval(() => {
+    const used = process.memoryUsage().rss / 1024 / 1024
+    if (used > 400) {
+        console.log('⚠️ RAM too high (>400MB), restarting bot...')
+        process.exit(1) // Panel will auto-restart
+    }
+}, 30_000) // check every 30 seconds
+
+            
 // Redirect temp storage away from system /tmp
 const customTemp = path.join(process.cwd(), 'temp');
 if (!fs.existsSync(customTemp)) fs.mkdirSync(customTemp, { recursive: true });
@@ -59,8 +85,6 @@ setInterval(() => {
   console.log('🧹 Temp folder auto-cleaned');
 }, 3 * 60 * 60 * 1000);
 
-// Increase max listeners globally to prevent warnings
-require('events').EventEmitter.defaultMaxListeners = 20;
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
