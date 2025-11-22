@@ -41,7 +41,7 @@ const store = require('./davelib/lightweight_store')
 
 // Initialize store
 store.readFromFile()
-const settings = require('./settings')
+const settings = require('./davesettingmanager')
 setInterval(() => store.writeToFile(), settings.storeWriteInterval || 10000)
 
 // Memory optimization - Force garbage collection if available
