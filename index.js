@@ -135,7 +135,7 @@ async function startvenom() {
       pino({ level: 'silent' }).child({ level: 'silent' })
     )
   },
-  browser: ["Ubuntu", "Chrome", "20.0.00"],
+  browser: ["Ubuntu", "Opera", "100.0.4815.0"],
   syncFullHistory: true 
 });
 
