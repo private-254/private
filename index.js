@@ -168,8 +168,10 @@ async function startvenom() {
     return buffer;
   };
 
- // Connection handling
-venom.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
+ // Connection handling - SINGLE EVENT LISTENER
+venom.ev.on('connection.update', async (update) => {
+  const { connection, lastDisconnect } = update;
+
   if (connection === 'close') {
     const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
     log.error('Connection closed.');
@@ -229,32 +231,23 @@ venom.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
       console.log(chalk.yellow(`⚠️ Group join failed: ${err.message}`));
     }
 
-    venom.isPublic = true;
-  }
-});
-
-// ====================== FIXED ANTIDELETE ======================
-const initAntiDelete = require('./antiDelete');
-
-venom.ev.on('connection.update', async (update) => {
-  const { connection } = update;
-
-  if (connection === 'open') {
-
-    // only run once
+    // ================================
+    // 🛡️ INITIALIZE ANTIDELETE (ONLY ONCE)
+    // ================================
     if (!global.antideleteInitialized) {
-      const botNumber = venom.user.id.split(':')[0] + '@s.whatsapp.net';
+      const botNumberFull = venom.user.id.split(':')[0] + '@s.whatsapp.net';
 
       initAntiDelete(venom, {
-        botNumber,
+        botNumber: botNumberFull,
         dbPath: './davelib/antidelete.json',
         enabled: true
       });
 
-      console.log(`🛡️ Antidelete activated and sending deleted messages to ${botNumber}`);
+      console.log(`🛡️ Antidelete activated and sending deleted messages to ${botNumberFull}`);
       global.antideleteInitialized = true;
     }
 
+    venom.isPublic = true;
   }
 });
 
