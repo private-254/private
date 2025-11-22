@@ -6,7 +6,7 @@ let MAX_MESSAGES = 20
 
 // Try to read config from settings
 try {
-    const settings = require('../settings.js')
+    const settings = require('../davesettingmanager.js')
     if (settings.maxStoreMessages && typeof settings.maxStoreMessages === 'number') {
         MAX_MESSAGES = settings.maxStoreMessages
     }
