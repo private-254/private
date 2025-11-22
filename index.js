@@ -1,5 +1,3 @@
-
-
 const fs = require('fs');
 const pino = require('pino');
 const readline = require('readline');
@@ -102,6 +100,10 @@ async function startvenom() {
   syncFullHistory: true 
 });
 
+  // FIX: Increase max listeners to prevent warnings
+  venom.setMaxListeners(20);
+  venom.ev.setMaxListeners(20);
+
   venom.ev.on('creds.update', saveCreds);
   const createToxxicStore = require('./davelib/basestore');
 const store = createToxxicStore('./store', {
@@ -118,7 +120,8 @@ const store = createToxxicStore('./store', {
       const cleanNumber = phoneNumber.replace(/[^0-9]/g, '');
       console.clear();
      const custom = "DAVEBOTS"; // must
-      const pairCode = await trashcore.requestPairingCode(cleanNumber,custom);
+      // FIX: Changed trashcore to venom
+      const pairCode = await venom.requestPairingCode(cleanNumber,custom);
       log.info(`Enter this code on your phone to pair: ${chalk.green(pairCode)}`);
       log.info("⏳ Wait a few seconds and approve the pairing on your phone...");
     } catch (err) {
