@@ -1,4 +1,4 @@
- const fs = require('fs');
+const fs = require('fs');
 const fg = require('api-dylux');
 const axios = require('axios');
 const yts = require("yt-search");
@@ -35,6 +35,7 @@ setInterval(() => {
   });
   console.log('🧹 Temp folder auto-cleaned');
 }, 3 * 60 * 60 * 1000);
+
 // =============== COLORS ===============
 const colors = {
     reset: "\x1b[0m",
@@ -54,19 +55,18 @@ function formatUptime(seconds) {
     return `${h}h ${m}m ${s}s`;
 }
 
-// Create fake contact for enhanced replies (fkontak style)
-function createFakeContact(sender) {
-    const senderNumber = sender ? sender.split('@')[0] : 'Unknown';
+// Create fake contact for enhanced replies (EXACTLY like JUNE-X style)
+function createFakeContact(message) {
     return {
         key: {
             participants: "0@s.whatsapp.net",
             remoteJid: "status@broadcast",
             fromMe: false,
-            id: "VENOM-XMD-MENU"
+            id: "VENOM-XMD"
         },
         message: {
             contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:VENOM XMD\nitem1.TEL;waid=${senderNumber}:${senderNumber}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:VENOM XMD\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
@@ -113,13 +113,25 @@ module.exports = async function handleCommand(venom, m, command,groupAdmins,isBo
     const senderJid = m.key.participant || m.key.remoteJid;
     const isOwner = senderJid === botNumber;
 
-    // FIXED: Reply function now uses fkontak style for all replies
+    // FIXED: Proper reply function using fkontak as quoted parameter
     const reply = (text) => {
-        const fkontak = createFakeContact(sender);
+        const fake = createFakeContact(m); // Use the message object like JUNE-X
         return venom.sendMessage(from, { 
+            text: text 
+        }, { 
+            quoted: fake  // ✅ Use fake as quoted parameter
+        });
+    };
+
+    // For replies with context info (images, buttons, etc.)
+    const replyWithContext = async (text, options = {}) => {
+        const fake = createFakeContact(m);
+        return venom.sendMessage(from, {
             text: text,
-            ...fkontak 
-        }, { quoted: m });
+            ...options
+        }, { 
+            quoted: fake 
+        });
     };
 
     const isGroup = from.endsWith('@g.us'); // true if group
@@ -232,7 +244,7 @@ ${isGroupMsg ? ` GROUP: ${groupName}` : ""}
     // REDUCED: Auto-react with fewer emojis
     if (global.autoReact && global.autoReact[m.chat]) {
         const emojis = ["❤️", "🔥", "⚡", "💫", "🎯", "😊", "👍", "👏"]; // Reduced emoji list
-        
+
         const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
 
         try {
@@ -311,17 +323,7 @@ ${isGroupMsg ? ` GROUP: ${groupName}` : ""}
     try {
         switch (command) {
             // ================= PING =================
-            // ================= PING =================
-case 'ping': {
-    const start = Date.now();
-    const sent = await reply('Checking connection...');
-    const latency = Date.now() - start;
-
-    // SIMPLE: Just use reply() since it already has fkontak style
-    await reply(`venom-xmd → Speed: ${latency}ms`);
-    break;
-}
-
+            
 // ================= AUTO REACT STATUS =================
 case 'autoreactstatus':
 case 'autostatusreact':
