@@ -348,10 +348,6 @@ async function handleStatus(m) {
   }
 }
 
-// Helper function for delay
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 // FIX: Single messages.upsert listener to prevent MaxListeners warning
 venom.ev.on('messages.upsert', async ({ messages }) => {
