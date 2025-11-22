@@ -1,5 +1,4 @@
-
-    const fs = require('fs');
+ const fs = require('fs');
 const fg = require('api-dylux');
 const axios = require('axios');
 const yts = require("yt-search");
@@ -435,6 +434,48 @@ case 'checkbotname': {
   break;
 }
 
+// ================= AUTO REACT MESSAGES =================
+case 'areact':
+case 'autoreactmessages':
+case 'reactmessage':
+case 'autoreactmessage':
+case 'arm': {
+    try {
+        // Only bot owner can use this
+        if (!isOwner) return reply("❌ Only the bot owner can toggle auto-react messages!");
+
+        const option = args[0]?.toLowerCase();
+
+        if (option === 'on' || option === 'enable') {
+            // Enable auto-react for this chat
+            global.autoReact = global.autoReact || {};
+            global.autoReact[m.chat] = true;
+            return reply("✅ *Auto-React enabled for this chat!*");
+        }
+
+        if (option === 'off' || option === 'disable') {
+            // Disable auto-react for this chat
+            global.autoReact = global.autoReact || {};
+            global.autoReact[m.chat] = false;
+            return reply("❌ *Auto-React disabled for this chat!*");
+        }
+
+        // Show current status
+        const isEnabled = global.autoReact && global.autoReact[m.chat];
+        return reply(
+            `🎭 *Auto-React Settings*\n\n` +
+            `• Status: ${isEnabled ? "✅ ON" : "❌ OFF"}\n\n` +
+            `Usage:\n` +
+            `- ${prefix}areact on\n` +
+            `- ${prefix}areact off`
+        );
+
+    } catch (err) {
+        console.error("AutoReact Command Error:", err);
+        reply("❌ An error occurred while updating auto-react settings.");
+    }
+    break;
+}
 // ================= RESET BOT NAME =================
 case 'resetbotname':
 case 'defaultbotname': {
