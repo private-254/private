@@ -300,6 +300,64 @@ case 'ping': {
     break;
 }
 
+// ================= AUTO REACT STATUS =================
+case 'autoreactstatus':
+case 'autostatusreact':
+case 'reactstatus':
+case 'statusreact': {
+    try {
+        // Only bot owner can use this
+        if (!isOwner) return reply("❌ Only the bot owner can toggle auto-react status!");
+
+        const option = args[0]?.toLowerCase();
+
+        // Use your existing settings structure
+        global.settings = global.settings || { 
+            autoreactstatus: true,
+            statusReactEmojis: ["💙","❤️", "🌚","😍", "✅"]
+        };
+
+        if (option === 'on' || option === 'enable') {
+            global.settings.autoreactstatus = true;
+            saveSettings(global.settings);
+            return reply("✅ *Auto-React Status enabled!* The bot will now automatically react to status updates.");
+        }
+
+        if (option === 'off' || option === 'disable') {
+            global.settings.autoreactstatus = false;
+            saveSettings(global.settings);
+            return reply("*Auto-React Status disabled!* The bot will no longer react to status updates.");
+        }
+
+        // Set custom emojis
+        if (option === 'set' || option === 'emoji') {
+            const emojis = args.slice(1);
+            if (emojis.length === 0) {
+                return reply("Please provide emojis! Example: `.autoreactstatus set ❤️ 🔥 😎`");
+            }
+            global.settings.statusReactEmojis = emojis;
+            saveSettings(global.settings);
+            return reply(`✅ *Status reaction emojis updated!*\nNew emojis: ${emojis.join(' ')}`);
+        }
+
+        // Show current status
+        const currentEmojis = global.settings.statusReactEmojis || ["💙","❤️", "🌚","😍", "✅"];
+        return reply(
+            `🎭 *Auto-React Status Settings*\n\n` +
+            `• Status: ${global.settings.autoreactstatus ? "✅ ON" : "❌ OFF"}\n` +
+            `• Emojis: ${currentEmojis.join(' ')}\n\n` +
+            `Usage:\n` +
+            `- ${prefix}autoreactstatus on\n` +
+            `- ${prefix}autoreactstatus off\n` +
+            `- ${prefix}autoreactstatus set ❤️ 🔥 😎`
+        );
+
+    } catch (err) {
+        console.error("AutoReact Status Command Error:", err);
+        reply("❌ An error occurred while updating auto-react status settings.");
+    }
+    break;
+}
             
 case 'sfile': {
   try {
