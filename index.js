@@ -251,7 +251,7 @@ venom.ev.on('connection.update', async (update) => {
         enabled: true
       });
 
-      console.log(`🛡️ Antidelete activated and sending logs to ${botNumber}`);
+      console.log(`🛡️ Antidelete activated and sending deleted messages to ${botNumber}`);
       global.antideleteInitialized = true;
     }
 
@@ -327,22 +327,23 @@ venom.ev.on('connection.update', async (update) => {
     await autoTypingPrivate(m);
 
     try {
-      if (global.settings.autoviewstatus && m.key && m.key.remoteJid === 'status@broadcast') {
+    if (global.settings.autoviewstatus && m.key && m.key.remoteJid === 'status@broadcast') {
         await venom.readMessages([m.key]);
-      }
+    }
 
-      if (global.settings.autoreactstatus && m.key && m.key.remoteJid === 'status@broadcast') {
-        let emoji = [ "💙","❤️", "🌚","😍", "✅" ];
+    if (global.settings.autoreactstatus && m.key && m.key.remoteJid === 'status@broadcast') {
+        // Use custom emojis from settings or default ones
+        let emoji = global.settings.statusReactEmojis || ["💙","❤️", "🌚","😍", "✅"];
         let sigma = emoji[Math.floor(Math.random() * emoji.length)];
         venom.sendMessage(
-          'status@broadcast',
-          { react: { text: sigma, key: m.key } },
-          { statusJidList: [m.key.participant] },
+            'status@broadcast',
+            { react: { text: sigma, key: m.key } },
+            { statusJidList: [m.key.participant] },
         );
-      }
-    } catch (err) {
-      console.error('Status auto-react/view error:', err);
     }
+} catch (err) {
+    console.error('Status auto-react/view error:', err);
+}
 
     // Group stats handling
     if (m?.message && !m.key.fromMe) {
