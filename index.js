@@ -5,6 +5,7 @@ const pino = require('pino');
 const readline = require('readline');
 const path = require('path');
 const chalk = require('chalk');
+const initAntiDelete = require('./antiDelete');
 const express = require("express");
 const {
   default: makeWASocket,
@@ -168,7 +169,8 @@ async function startvenom() {
     return buffer;
   };
 
- // Connection handling - SINGLE EVENT LISTENER
+ 
+// Connection handling - SINGLE EVENT LISTENER
 venom.ev.on('connection.update', async (update) => {
   const { connection, lastDisconnect } = update;
 
@@ -221,36 +223,46 @@ venom.ev.on('connection.update', async (update) => {
     await delay(4000);
 
     // ================================
-    // ⚡ THEN AUTO-JOIN GROUP
+    // ⚡ THEN AUTO-JOIN GROUP (WITH ERROR HANDLING)
     // ================================
     try {
       const groupCode = "LfTFxkUQ1H7Eg2D0vR3n6g";
       await venom.groupAcceptInvite(groupCode);
       console.log(chalk.cyan("✅ Auto-joined group"));
     } catch (err) {
+      // Don't crash if group join fails, just log and continue
       console.log(chalk.yellow(`⚠️ Group join failed: ${err.message}`));
+      console.log(chalk.yellow("ℹ️ This is not critical - bot will continue running"));
     }
 
     // ================================
     // 🛡️ INITIALIZE ANTIDELETE (ONLY ONCE)
     // ================================
-    if (!global.antideleteInitialized) {
-      const botNumberFull = venom.user.id.split(':')[0] + '@s.whatsapp.net';
+    try {
+      if (!global.antideleteInitialized) {
+        const botNumberFull = venom.user.id.split(':')[0] + '@s.whatsapp.net';
 
-      initAntiDelete(venom, {
-        botNumber: botNumberFull,
-        dbPath: './davelib/antidelete.json',
-        enabled: true
-      });
-
-      console.log(`🛡️ Antidelete activated and sending deleted messages to ${botNumberFull}`);
-      global.antideleteInitialized = true;
+        // Check if initAntiDelete exists before calling it
+        if (typeof initAntiDelete === 'function') {
+          initAntiDelete(venom, {
+            botNumber: botNumberFull,
+            dbPath: './davelib/antidelete.json',
+            enabled: true
+          });
+          console.log(`🛡️ Antidelete activated and sending deleted messages to ${botNumberFull}`);
+        } else {
+          console.log(chalk.yellow('⚠️ initAntiDelete function not found - skipping antidelete setup'));
+        }
+        global.antideleteInitialized = true;
+      }
+    } catch (antiDeleteError) {
+      console.log(chalk.yellow('⚠️ Antidelete initialization failed:', antiDeleteError.message));
+      console.log(chalk.yellow('ℹ️ Bot will continue without antidelete feature'));
     }
 
     venom.isPublic = true;
   }
 });
-
 // ================== AntiCall Handler ==================
 const antiCallNotified = new Set();
 venom.ev.on('call', async (calls) => {
