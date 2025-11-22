@@ -2426,7 +2426,7 @@ case 'pindl': {
   break;
 }
 // ================= UPDATE =================
-case 'updatebot': {
+case 'update': {
   if (!isOwner) return reply("Owner-only command!");
   const { exec } = require('child_process');
   const fs = require('fs');
@@ -3954,6 +3954,116 @@ case 'suggest': {
     break;
 }
 
+case 'reject': {
+    if (!m.isGroup) return reply(mess.group);
+    if (!isOwner) return reply("This feature is only for bot owner.");
+
+    let responseList;
+    try {
+        responseList = await venom.groupRequestParticipantsList(m.chat);
+    } catch (err) {
+        console.error(err);
+        return reply("Failed to fetch pending requests.");
+    }
+
+    if (!responseList || responseList.length === 0) {
+        return reply("No pending requests detected.");
+    }
+
+    for (const participan of responseList) {
+        try {
+            await venom.groupRequestParticipantsUpdate(
+                m.chat,
+                [participan.jid],
+                "reject"
+            );
+        } catch (err) {
+            console.error(`Failed to reject ${participan.jid}:`, err);
+        }
+    }
+
+    reply("All pending requests have been rejected!");
+    break;
+}
+
+// =================LINKGC=================
+case 'linkgc': {
+    if (!m.isGroup) return reply("This command only works in groups.");
+    try {
+        const meta = await venom.groupMetadata(m.chat);
+
+        const groupName = meta.subject || "Unknown";
+        const members = meta.participants || [];
+        const totalMembers = members.length;
+
+        const admins = members.filter(p => p.admin !== null);
+        const numAdmins = admins.length;
+
+        const linkCode = await venom.groupInviteCode(m.chat);
+        const groupLink = `https://chat.whatsapp.com/${linkCode}`;
+
+        let pfp;
+        try {
+            pfp = await venom.profilePictureUrl(m.chat, "image");
+        } catch {
+            pfp = null;
+        }
+
+        let caption = `
+Group Information
+--------------------------------
+Name: ${groupName}
+Members: ${totalMembers}
+Admins: ${numAdmins}
+Link: ${groupLink}
+--------------------------------
+        `.trim();
+
+        if (pfp) {
+            await venom.sendMessage(m.chat, { image: { url: pfp }, caption });
+        } else {
+            await venom.sendMessage(m.chat, { text: caption });
+        }
+
+    } catch (e) {
+        console.log(e);
+        reply("Failed to get group info.");
+    }
+}
+break;
+
+// =================APPROVE=================
+case 'approve': {
+    if (!m.isGroup) return reply(mess.group);
+    if (!isOwner) return reply("This feature is only for bot owner only.");
+
+    let responseList;
+    try {
+        responseList = await venom.groupRequestParticipantsList(m.chat);
+    } catch (err) {
+        console.error(err);
+        return reply("Failed to fetch pending requests.");
+    }
+
+    if (!responseList || responseList.length === 0) {
+        return reply("No pending requests detected at the moment!");
+    }
+
+    for (const participan of responseList) {
+        try {
+            await venom.groupRequestParticipantsUpdate(
+                m.chat,
+                [participan.jid],
+                "approve"
+            );
+        } catch (err) {
+            console.error(`Failed to approve ${participan.jid}:`, err);
+        }
+    }
+
+    reply("VENOM-XMD has approved all pending requests!");
+    break;
+}
 case 'disp-7': {
     try {
         if (!isGroup) return reply(" This command only works in groups!");
@@ -5397,84 +5507,8 @@ case 'allmenu': {
   break;
 }
 // ================= SONG =================
-case 'song':
-case 'playmusic': {
-const axios = require('axios');
-const fs = require('fs');
-const ffmpeg = require('fluent-ffmpeg');
-const path = require('path');
-    async function getBuffer(url) {
-        try {
-            const res = await axios.get(url, { responseType: 'arraybuffer' });
-            return Buffer.from(res.data, 'binary');
-        } catch (err) {
-            console.error('Error fetching buffer:', err);
-            throw err;
-        }
-    }
 
-    if (!q) return reply("please provide a song name!");
-
-    try {
-        const apiUrl = `https://savant-api.vercel.app/download/play?query=${encodeURIComponent(q)}`;
-        const response = await axios.get(apiUrl);
-        const result = response.data?.result;
-
-        if (!result) return reply(" Could not find the song.");
-
-        const { title, author, duration, thumbnail, download } = result;
-
-        if (!download) return reply(" Audio link not available. Try another song.");
-
-        // Fetch thumbnail
-        const thumbBuffer = await getBuffer(thumbnail);
-
-        const captionText = `
- *Now Playing - MP3*
-
- Title: ${title}
- Artist: ${author}
- Duration: ${duration}
-        `;
-
-        // Send thumbnail first
-        await venom.sendMessage(m.chat, {
-            image: { url: thumbnail },
-            caption: captionText
-        }, { quoted: m });
-
-        // Download original audio temporarily
-        const tempAudioPath = path.join(__dirname, `${title}.mp3`);
-        const audioRes = await axios.get(download, { responseType: 'arraybuffer' });
-        fs.writeFileSync(tempAudioPath, audioRes.data);
-
-        // Convert audio to lower bitrate (e.g., 64kbps)
-        const lowAudioPath = path.join(__dirname, `${title}_low.mp3`);
-        await new Promise((resolve, reject) => {
-            ffmpeg(tempAudioPath)
-                .audioBitrate(64)
-                .save(lowAudioPath)
-                .on('end', resolve)
-                .on('error', reject);
-        });
-
-        // Send the smaller audio
-        await venom.sendMessage(m.chat, {
-            audio: { url: lowAudioPath },
-            mimetype: 'audio/mpeg',
-            fileName: `${title}.mp3`
-        }, { quoted: m });
-
-        // Cleanup temporary files
-        fs.unlinkSync(tempAudioPath);
-        fs.unlinkSync(lowAudioPath);
-
-    } catch (err) {
-        console.error(err);
-        reply(" Failed to fetch or process the audio.");
-    }
-    break;
-}
+        
 // ================= YTMP3 =================
 case 'ytmp3':
 case 'ytaudio': {
