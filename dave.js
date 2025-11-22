@@ -476,6 +476,368 @@ case 'sfile': {
 }
 
 
+// ================= PLAY2 =================
+case 'play2': {
+  try {
+    const axios = require('axios');
+    const query = args.join(' ').trim();
+    if (!query) return reply(`Usage: .play <song name>\nExample: .play2 Tiktoker by Goddy Tennor`);
+
+    await reply('Searching for your song...');
+
+    const apiUrl = `https://api.nekolabs.web.id/downloader/youtube/play/v1?q=${encodeURIComponent(query)}`;
+    const { data } = await axios.get(apiUrl);
+
+    if (!data?.success || !data.result) {
+      return reply('Could not find the song.');
+    }
+
+    const song = data.result.metadata; // title, channel, duration, cover, url
+    const downloadUrl = data.result.downloadUrl;
+
+    const caption = `${song.title}\nChannel: ${song.channel}\nDuration: ${song.duration}`;
+
+    // Send cover image + info
+    await venom.sendMessage(from, {
+      image: { url: song.cover },
+      caption,
+      footer: 'YouTube Downloader'
+    }, { quoted: m });
+
+    // Send audio
+    await venom.sendMessage(from, {
+      audio: { url: downloadUrl },
+      mimetype: 'audio/mpeg',
+      fileName: `${song.title}.mp3`
+    }, { quoted: m });
+
+  } catch (err) {
+    console.error('play error:', err);
+    reply(`Error: ${err.message}`);
+  }
+  break;
+
+case 'igdl2': {
+  try {
+    const axios = require('axios');
+
+    if (!text) return reply(`Usage: .igdl <Instagram post URL>\nExample: .igdl2 https://www.instagram.com/p/XXXXXXXXX/`);
+
+    await reply('Fetching Instagram media...');
+
+    const apiUrl = `https://api.nekolabs.web.id/downloader/instagram?url=${encodeURIComponent(text)}`;
+    const { data } = await axios.get(apiUrl);
+
+    if (!data?.success || !data.result) {
+      return reply('Could not fetch the media from Instagram.');
+    }
+
+    const { metadata, downloadUrl } = data.result;
+
+    // Prepare caption text
+    let captionText = `Instagram Post by: ${metadata.username}\nLikes: ${metadata.like}\nComments: ${metadata.comment}\n\n${metadata.caption || ''}`;
+
+    // If video
+    if (metadata.isVideo && downloadUrl[0]) {
+      await venom.sendMessage(from, {
+        video: { url: downloadUrl[0] },
+        caption: captionText,
+        mimetype: 'video/mp4'
+      }, { quoted: m });
+    } 
+    // If images
+    else if (downloadUrl && Array.isArray(downloadUrl)) {
+      for (let img of downloadUrl) {
+        await venom.sendMessage(from, {
+          image: { url: img },
+          caption: captionText
+        }, { quoted: m });
+      }
+    }
+
+  } catch (err) {
+    console.error('igdl error:', err);
+    reply(`Error: ${err.message}`);
+  }
+  break;
+}
+// ================= SONG =================
+case 'song': {
+  try {
+    const axios = require('axios');
+    const yts = require('yt-search'); // install yt-search if not already
+
+    if (!args.length) return reply("Provide a song name or link!");
+
+    const query = args.join(" ");
+
+    let videoUrl = query;
+
+    // If it doesn't look like a URL, search YouTube
+    if (!query.startsWith('http')) {
+      const searchResult = await yts(query);
+      if (!searchResult.videos.length) return reply("No results found!");
+      videoUrl = searchResult.videos[0].url; // Take first result
+    }
+
+    // Call your audio-download API
+    const apiUrl = `https://apiskeith.vercel.app/download/audio?url=${encodeURIComponent(videoUrl)}`;
+    const { data } = await axios.get(apiUrl);
+
+    if (!data || !data.status || !data.result) return reply("Failed to get download URL.");
+
+    const audioUrl = data.result;
+
+    // Send the audio
+    await venom.sendMessage(
+      m.chat,
+      {
+        audio: { url: audioUrl },
+        mimetype: "audio/mpeg",
+        fileName: "song.mp3"
+      },
+      { quoted: m }
+    );
+  } catch (e) {
+    console.error(e);
+    reply("Error downloading audio.");
+  }
+}
+break;
+
+case 'truth': {
+  try {
+    const axios = require('axios');
+    const res = await axios.get('https://apiskeith.vercel.app/fun/truth');
+
+    if (res.data?.status) {
+      reply(`Truth:\n\n${res.data.result}`);
+    } else {
+      reply('Failed to fetch a truth. Try again later.');
+    }
+  } catch (err) {
+    console.error('Truth Error:', err);
+    reply('Error fetching truth. Please try again later.');
+  }
+  break;
+}
+// ================= Dare =================
+case 'dare': {
+  try {
+    const axios = require('axios');
+    const res = await axios.get('https://apiskeith.vercel.app/fun/dare');
+
+    if (res.data?.status) {
+      reply(`Dare:\n\n${res.data.result}`);
+    } else {
+      reply('Failed to fetch a dare. Try again later.');
+    }
+  } catch (err) {
+    console.error('Dare Error:', err);
+    reply('Error fetching dare. Please try again later.');
+  }
+  break;
+}
+// ================= Jokes =================
+case 'jokes': {
+  try {
+    const axios = require('axios');
+    const res = await axios.get('https://apiskeith.vercel.app/fun/jokes');
+
+    if (res.data?.status && res.data.result) {
+      const { setup, punchline } = res.data.result;
+      reply(`Joke:\n\n${setup}\n\nPunchline:\n${punchline}`);
+    } else {
+      reply('Failed to fetch a joke. Try again later.');
+    }
+  } catch (err) {
+    console.error('Joke Error:', err);
+    reply('Error fetching joke. Please try again later.');
+  }
+  break;
+}
+// ================= Quote =================
+case 'quote': {
+  try {
+    const axios = require('axios');
+
+    await venom.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
+
+    const res = await axios.get('https://apiskeith.vercel.app/quote/audio');
+    if (!res.data?.status || !res.data.result) 
+      return reply('Failed to fetch a quote. Try again later.');
+
+    const quotes = res.data.result.data
+      .filter(q => q.type === 'quote')
+      .map(q => q.text)
+      .join('\n\n');
+
+    const audioUrl = res.data.result.mp3;
+
+    if (quotes) await reply(`Quote(s):\n\n${quotes}`);
+
+    await venom.sendMessage(m.chat, { 
+      audio: { url: audioUrl }, 
+      mimetype: 'audio/mpeg', 
+      ptt: false 
+    });
+
+    await venom.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+
+  } catch (err) {
+    console.error('Quote Error:', err);
+    reply('Error fetching quote. Please try again later.');
+    await venom.sendMessage(m.chat, { react: { text: "❌", key: m.key } });
+  }
+  break;
+}
+// ================= Insult =================
+case 'insult': {
+  try {
+    const axios = require('axios');
+    const res = await axios.get('https://apiskeith.vercel.app/fun/insult');
+
+    if (res.data?.status) {
+      reply(`Insult:\n\n${res.data.result}`);
+    } else {
+      reply('Failed to fetch an insult. Try again later.');
+    }
+  } catch (err) {
+    console.error('Insult Error:', err);
+    reply('Error fetching insult. Please try again later.');
+  }
+  break;
+}
+// ================= FACT =================
+case 'fact': {
+  try {
+    const axios = require('axios');
+    const res = await axios.get('https://apiskeith.vercel.app/fun/fact');
+
+    if (res.data?.status) {
+      reply(`Fun Fact:\n\n${res.data.result}`);
+    } else {
+      reply('Failed to fetch a fact. Try again later.');
+    }
+  } catch (err) {
+    console.error('Fact Error:', err);
+    reply('Error fetching fact. Please try again later.');
+  }
+  break;
+}
+
+
+case 'reject': {
+    if (!m.isGroup) return reply(mess.group);
+    if (!isOwner) return reply("This feature is only for bot owner.");
+
+    let responseList;
+    try {
+        responseList = await venom.groupRequestParticipantsList(m.chat);
+    } catch (err) {
+        console.error(err);
+        return reply("Failed to fetch pending requests.");
+    }
+
+    if (!responseList || responseList.length === 0) {
+        return reply("No pending requests detected.");
+    }
+
+    for (const participan of responseList) {
+        try {
+            await venom.groupRequestParticipantsUpdate(
+                m.chat,
+                [participan.jid],
+                "reject"
+            );
+        } catch (err) {
+            console.error(`Failed to reject ${participan.jid}:`, err);
+        }
+    }
+
+    reply("All pending requests have been rejected!");
+    break;
+}
+
+// =================LINKGC=================
+case 'linkgc': {
+    if (!m.isGroup) return reply("This command only works in groups.");
+    try {
+        const meta = await venom.groupMetadata(m.chat);
+
+        const groupName = meta.subject || "Unknown";
+        const members = meta.participants || [];
+        const totalMembers = members.length;
+
+        const admins = members.filter(p => p.admin !== null);
+        const numAdmins = admins.length;
+
+        const linkCode = await venom.groupInviteCode(m.chat);
+        const groupLink = `https://chat.whatsapp.com/${linkCode}`;
+
+        let pfp;
+        try {
+            pfp = await venom.profilePictureUrl(m.chat, "image");
+        } catch {
+            pfp = null;
+        }
+
+        let caption = `
+Group Information
+--------------------------------
+Name: ${groupName}
+Members: ${totalMembers}
+Admins: ${numAdmins}
+Link: ${groupLink}
+--------------------------------
+        `.trim();
+
+        if (pfp) {
+            await venom.sendMessage(m.chat, { image: { url: pfp }, caption });
+        } else {
+            await venom.sendMessage(m.chat, { text: caption });
+        }
+
+    } catch (e) {
+        console.log(e);
+        reply("Failed to get group info.");
+    }
+}
+break;
+
+// =================APPROVE=================
+case 'approve': {
+    if (!m.isGroup) return reply(mess.group);
+    if (!isOwner) return reply("This feature is only for bot owner only.");
+
+    let responseList;
+    try {
+        responseList = await venom.groupRequestParticipantsList(m.chat);
+    } catch (err) {
+        console.error(err);
+        return reply("Failed to fetch pending requests.");
+    }
+
+    if (!responseList || responseList.length === 0) {
+        return reply("No pending requests detected at the moment!");
+    }
+
+    for (const participan of responseList) {
+        try {
+            await venom.groupRequestParticipantsUpdate(
+                m.chat,
+                [participan.jid],
+                "approve"
+            );
+        } catch (err) {
+            console.error(`Failed to approve ${participan.jid}:`, err);
+        }
+    }
+
+    reply("VENOM BOT has approved all pending requests!");
+    break;
+}
+
 case 'setbotname':
 case 'setname':
 case 'changebotname': {
@@ -5616,6 +5978,461 @@ async function getBuffer(url) {
             }
 // ================= GET CASE  =================
 
+case 'web2zip': {
+  const axios = require("axios");
+  const fs = require("fs");
+  const path = require("path");
+
+  try {
+    if (!text) return reply("Please provide a website URL!\n\nExample:\n.web2zip https://trashcoreweb.zone.id");
+
+    const apiUrl = `https://api.nekolabs.web.id/tools/web2zip?url=${encodeURIComponent(text)}`;
+    const { data } = await axios.get(apiUrl);
+
+    if (!data.success || !data.result || !data.result.downloadUrl) {
+      return reply("Could not generate ZIP file. Please check the website URL.");
+    }
+
+    const { url, copiedFilesAmount, downloadUrl } = data.result;
+    const zipPath = path.join(__dirname, "temp.zip");
+
+    // Notify user that download is starting
+    await reply(`Generating ZIP from ${url}...\nPlease wait, downloading...`);
+
+    // Download the ZIP file
+    const response = await axios.get(downloadUrl, { responseType: "arraybuffer" });
+    fs.writeFileSync(zipPath, response.data);
+
+    // Send ZIP as document
+    await venom.sendMessage(from, {
+      document: fs.readFileSync(zipPath),
+      mimetype: "application/zip",
+      fileName: `web_snapshot.zip`,
+      caption: `Website Archived Successfully!\n\nURL: ${url}\nFiles Saved: ${copiedFilesAmount}\nProcessed by: VENOMBOT`
+    }, { quoted: m });
+
+    // Clean up temporary file
+    fs.unlinkSync(zipPath);
+
+  } catch (err) {
+    console.error(err);
+    reply(`Error: ${err.message}`);
+  }
+  break;
+}
+
+case 'player': {
+    try {
+        const axios = require('axios');
+        const q = args.join(" ");
+        if (!q) return reply("Send player name!\nExample: player Ronaldo");
+
+        const url = `https://apiskeith.vercel.app/sport/playersearch?q=${encodeURIComponent(q)}`;
+        const { data } = await axios.get(url);
+
+        if (!data || !data.result || !data.result.length) {
+            return reply("Player not found.");
+        }
+
+        // Send top 3 results one by one
+        const results = data.result.slice(0, 3);
+        for (let i = 0; i < results.length; i++) {
+            const player = results[i];
+
+            let caption = `${i + 1}. ${player.name}\n`;
+            caption += `Team: ${player.team}\n`;
+            caption += `Nationality: ${player.nationality}\n`;
+            caption += `Birthdate: ${player.birthDate}\n`;
+            caption += `Status: ${player.status}\n`;
+            caption += `Position: ${player.position}\n`;
+            caption += `Sport: ${player.sport}\n`;
+
+            // Send image with caption
+            if (player.thumbnail) {
+                await venom.sendMessage(
+                    m.chat, 
+                    { image: { url: player.thumbnail }, caption: caption }
+                );
+            } else {
+                // If no image, just send the text
+                reply(caption);
+            }
+        }
+
+    } catch (e) {
+        console.error(e);
+        reply("Error fetching player data.");
+    }
+}
+break;
+// ================= CLUB  =================
+case 'club': {
+    try {
+        const axios = require('axios');
+        const q = args.join(" ");
+        if (!q) return reply("Send club name!\nExample: club Arsenal");
+
+        const url = `https://apiskeith.vercel.app/sport/teamsearch?q=${encodeURIComponent(q)}`;
+        const { data } = await axios.get(url);
+
+        if (!data || !data.result || !data.result.length) {
+            return reply("Club not found.");
+        }
+
+        const team = data.result[0]; // Take the first match
+
+        let text = `${team.name} (${team.shortName ?? ""})\n`;
+        text += `Location: ${team.location ?? "Unknown"}\n`;
+        text += `Country: ${team.country ?? "Unknown"}\n`;
+        text += `Sport: ${team.sport ?? "Unknown"}\n`;
+        text += `Stadium: ${team.stadium ?? "Unknown"}\n`;
+        text += `Founded: ${team.formedYear ?? "Unknown"}\n`;
+        text += `Colors: Primary ${team.colors?.primary ?? "N/A"}, Secondary ${team.colors?.secondary ?? "N/A"}\n`;
+        text += `Website: ${team.social?.website ?? "N/A"}\n\n`;
+        text += `Description:\n${team.description?.substring(0, 500) ?? "No description"}...\n\n`;
+
+        // Send badge or fanart images
+        let images = team.fanArt?.slice(0, 3) || [team.badges?.large, team.badges?.small].filter(Boolean);
+
+        if (images.length) {
+            for (let img of images) {
+                await venom.sendMessage(m.chat, { image: { url: img }, caption: text });
+                text = ""; // Only send caption on first image
+            }
+        } else {
+            reply(text);
+        }
+
+    } catch (e) {
+        console.error(e);
+        reply("Error fetching club data.");
+    }
+}
+break;
+// ================= EPLSTANDINGS  =================
+case 'eplstandings': {
+    try {
+        const axios = require('axios');
+        const url = 'https://apiskeith.vercel.app/epl/standings';
+        const { data } = await axios.get(url);
+
+        if (!data || !data.result || !data.result.standings || !data.result.standings.length) {
+            return reply("EPL standings not found.");
+        }
+
+        const standings = data.result.standings;
+
+        let text = `Premier League Standings (Points Only)\n\n`;
+
+        standings.forEach(team => {
+            text += `${team.position}. ${team.team} - ${team.points} points\n`;
+        });
+
+       m.reply(text);
+
+    } catch (e) {
+        console.error(e);
+        reply("Error fetching EPL standings.");
+    }
+}
+break;
+// ================= EPLTOPSCORERS  =================
+case 'epltopscorers': {
+    try {
+        const axios = require('axios');
+        const url = 'https://apiskeith.vercel.app/epl/scorers';
+        const { data } = await axios.get(url);
+
+        if (!data || !data.result || !data.result.topScorers || !data.result.topScorers.length) {
+            return reply("No top scorers found.");
+        }
+
+        const scorers = data.result.topScorers;
+
+        let text = `EPL Top Scorers\n\n`;
+
+        scorers.forEach((player) => {
+            text += `${player.rank}. ${player.player}\n`;
+            text += `Team: ${player.team}\n`;
+            text += `Goals: ${player.goals}\n`;
+            text += `Assists: ${player.assists}\n`;
+            text += `Penalties: ${player.penalties}\n`;
+            text += `──────────────\n`;
+        });
+
+        m.reply(text);
+
+    } catch (e) {
+        console.error(e);
+        reply("Error fetching EPL top scorers.");
+    }
+}
+break;
+// ================= BundeFixtures  =================
+case 'bundesliga': {
+    try {
+        const axios = require('axios');
+        const url = 'https://apiskeith.vercel.app/bundesliga/upcomingmatches';
+        const { data } = await axios.get(url);
+
+        if (!data || !data.result || !data.result.upcomingMatches || !data.result.upcomingMatches.length) {
+            return reply("No Bundesliga upcoming matches found.");
+        }
+
+        const matches = data.result.upcomingMatches;
+
+        let text = `BUNDESLIGA UPCOMING MATCHES\n\n`;
+
+        matches.forEach((match, i) => {
+            text += `${i + 1}. Matchday ${match.matchday}\n`;
+            text += `${match.homeTeam} vs ${match.awayTeam}\n`;
+            text += `Date: ${match.date}\n`;
+            text += `──────────────\n`;
+        });
+
+        m.reply(text);
+
+    } catch (e) {
+        console.error(e);
+        reply("Error fetching Bundesliga matches.");
+    }
+}
+break;
+// ================= Bundesligatable  =================
+case 'bundesligastats': {
+    try {
+        const axios = require('axios');
+        const url = 'https://apiskeith.vercel.app/bundesliga/standings';
+        const { data } = await axios.get(url);
+
+        if (!data || !data.result || !data.result.standings || !data.result.standings.length) {
+            return reply("Bundesliga standings not found.");
+        }
+
+        const standings = data.result.standings;
+
+        let text = `BUNDESLIGA POINTS TABLE\n\n`;
+        standings.forEach(team => {
+            text += `${team.position}. ${team.team} - Points: ${team.points}\n`;
+        });
+
+        m.reply(text);
+
+    } catch (e) {
+        console.error(e);
+        reply("Error fetching Bundesliga table.");
+    }
+}
+break;
+// ================= BUNDESLIGGA  =================
+case 'bundesligascores': {
+    try {
+        const axios = require('axios');
+        const url = 'https://apiskeith.vercel.app/bundesliga/scorers';
+        const { data } = await axios.get(url);
+
+        if (!data?.result?.topScorers?.length) {
+            return reply("Bundesliga top scorers not found.");
+        }
+
+        const scorers = data.result.topScorers;
+
+        let text = `BUNDESLIGA TOP SCORERS\n\n`;
+
+        scorers.slice(0, 10).forEach(player => {
+            text += `${player.rank}. ${player.player}\n`;
+            text += `Team: ${player.team}\n`;
+            text += `Goals: ${player.goals}\n`;
+            text += `Assists: ${player.assists}\n`;
+            text += `Penalties: ${player.penalties}\n`;
+            text += `──────────────\n`;
+        });
+
+        m.reply(text);
+
+    } catch (e) {
+        console.error(e);
+        reply("Error fetching Bundesliga top scorers.");
+    }
+}
+break;
+
+case 'ligue1table': {
+  try {
+    const axios = require('axios');
+    const url = 'https://apiskeith.vercel.app/ligue1/standings';
+    const { data } = await axios.get(url);
+
+    if (!data?.result?.standings?.length) {
+      return reply("No Ligue 1 standings found.");
+    }
+
+    const standings = data.result.standings;
+    let text = `LIGUE 1 STANDINGS\n\n`;
+
+    standings.forEach(team => {
+      text += `${team.position}. ${team.team} - ${team.points} pts\n`;
+    });
+
+    reply(text);
+  } catch (e) {
+    console.error(e);
+    reply("Error fetching Ligue 1 standings.");
+  }
+}
+break;
+// ================= Liguescorers  =================
+case 'liguescorers': {
+  try {
+    const axios = require('axios');
+    const url = 'https://apiskeith.vercel.app/ligue1/scorers';
+    const { data } = await axios.get(url);
+
+    if (!data?.result?.topScorers?.length) {
+      return reply("No Ligue 1 top scorers found.");
+    }
+
+    const scorers = data.result.topScorers;
+    let text = `LIGUE 1 TOP SCORERS\n\n`;
+    scorers.slice(0, 10).forEach(player => {
+      text += `${player.rank}. ${player.player} — ${player.team}\n`;
+      text += `Goals: ${player.goals}`;
+      if (player.assists != null) text += ` | Assists: ${player.assists}`;
+      if (player.penalties != null) text += ` | Penalties: ${player.penalties}`;
+      text += `\n──────────────\n`;
+    });
+
+    m.reply(text);
+  } catch (e) {
+    console.error(e);
+    reply("Error fetching Ligue 1 top scorers.");
+  }
+}
+break;
+// ================= SeriaA  =================
+case 'serieamatches': {
+  try {
+    const axios = require('axios');
+    const url = 'https://apiskeith.vercel.app/seriea/upcomingmatches';
+    const { data } = await axios.get(url);
+
+    if (!data?.result?.upcomingMatches?.length) {
+      return reply("No upcoming Serie A matches found.");
+    }
+
+    const matches = data.result.upcomingMatches;
+    let text = `SERIE A UPCOMING MATCHES\n\n`;
+
+    matches.forEach((match, i) => {
+      text += `${i + 1}. Matchday ${match.matchday}\n`;
+      text += `${match.homeTeam} vs ${match.awayTeam}\n`;
+      text += `Date: ${match.date}\n`;
+      text += `──────────────\n`;
+    });
+
+    m.reply(text);
+  } catch (e) {
+    console.error(e);
+    reply("Error fetching Serie A matches.");
+  }
+}
+break;
+// ================= Seriastats  =================
+case 'serieastats': {
+  try {
+    const axios = require('axios');
+    const url = 'https://apiskeith.vercel.app/seriea/standings';
+    const { data } = await axios.get(url);
+
+    if (!data?.result?.standings?.length) {
+      return reply("No Serie A standings found.");
+    }
+
+    const standings = data.result.standings;
+    let text = `SERIE A TABLE (Points Only)\n\n`;
+
+    standings.forEach(team => {
+      text += `${team.position}. ${team.team} – ${team.points} pts\n`;
+    });
+
+    reply(text);
+
+  } catch (e) {
+    console.error(e);
+    reply("Error fetching Serie A standings.");
+  }
+}
+break;
+// ================= SERIEA  =================
+case 'serieascorers': {
+  try {
+    const axios = require('axios');
+    const url = 'https://apiskeith.vercel.app/seriea/scorers';
+    const { data } = await axios.get(url);
+
+    if (!data?.result?.topScorers?.length) {
+      return reply("No Serie A top scorers found.");
+    }
+
+    const scorers = data.result.topScorers;
+    let text = `SERIE A TOP SCORERS\n\n`;
+
+    scorers.slice(0, 10).forEach(player => {
+      text += `${player.rank}. ${player.player} — ${player.team}\n`;
+      text += `Goals: ${player.goals}`;
+      if (player.assists != null) text += ` | Assists: ${player.assists}`;
+      if (player.penalties != null) text += ` | Penalties: ${player.penalties}`;
+      text += `\n──────────────\n`;
+    });
+
+    m.reply(text);
+  } catch (e) {
+    console.error(e);
+    reply("Error fetching Serie A top scorers.");
+  }
+}
+break;
+// ================= LIVESCORE  =================
+case 'livescore': {
+    try {
+        const axios = require('axios');
+
+        const url = "https://apiskeith.vercel.app/livescore";
+        const { data } = await axios.get(url);
+
+        if (!data.status || !data.result || !data.result.response.length) {
+            return reply("No live matches found.");
+        }
+
+        const matches = data.result.response;
+
+        let text = `LIVE FOOTBALL SCORES\n\n`;
+
+        matches.forEach((match, i) => {
+            const league = match.league?.name ?? "Unknown League";
+            const home = match.teams?.home?.name ?? "Home Team";
+            const away = match.teams?.away?.name ?? "Away Team";
+            const scoreHome = match.goals?.home ?? 0;
+            const scoreAway = match.goals?.away ?? 0;
+            const minute = match.fixture?.status?.elapsed ?? 0;
+            const status = match.fixture?.status?.long ?? "Unknown";
+
+            text += `${i + 1}. ${league}\n`;
+            text += `Match: ${home} vs ${away}\n`;
+            text += `Minute: ${minute}\n`;
+            text += `Score: ${scoreHome} - ${scoreAway}\n`;
+            text += `Status: ${status}\n`;
+            text += `──────────────\n`;
+        });
+
+        await venom.sendMessage(m.chat, { text }, { quoted: m });
+
+    } catch (err) {
+        console.log(err);
+        reply("Error fetching live scores.");
+    }
+}
+break;
 // ================= GET CASE  =================
 case 'getcase': {
 if (!isOwner) return reply(" Owner-only command.");
