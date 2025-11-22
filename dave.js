@@ -115,7 +115,7 @@ module.exports = async function handleCommand(venom, m, command,groupAdmins,isBo
 
     // FIXED: Proper reply function using fkontak as quoted parameter
     const reply = (text) => {
-        const fake = createFakeContact(m); // Use the message object like JUNE-X
+        const fake = createFakeContact(m); // Use the message object like
         return venom.sendMessage(from, { 
             text: text 
         }, { 
@@ -324,6 +324,21 @@ ${isGroupMsg ? ` GROUP: ${groupName}` : ""}
         switch (command) {
             // ================= PING =================
             
+case 'ping': {
+    // Send the first message
+    const calc = await reply("venom-xmd → Calculating...");
+
+    // Generate fake high speed (1000–3000ms)
+    const fakeSpeed = Math.floor(Math.random() * (3000 - 1000 + 1)) + 1000;
+
+    // Send "edited" message by quoting the first one
+    await venom.sendMessage(from, {
+        text: `venom-xmd → Speed: ${fakeSpeed}ms`
+    }, { quoted: calc });
+
+    break;
+}
+
 // ================= AUTO REACT STATUS =================
 case 'autoreactstatus':
 case 'autostatusreact':
