@@ -876,14 +876,14 @@ case 'help': {
 ┃ ✦ Users    : *${totalUsers}*
 ┃ ✦ Commands : *${totalCommands}*
 ┃ ✦ Host     : *${host}*
-┃ ✦ Mode     : *${global.settings.public ? 'Public' : 'Private'}*
+┃ ✦ Mode     : *${global.settings?.public ? 'Public' : 'Private'}*
 ┗━━━━━━━━━━━━━━━━━━
 
 *${botName.toUpperCase()} CONTROL*
 ┣➤ ping
 ┣➤ public
-┣➤allmenu 
-┣➤dave(menu)
+┣➤ allmenu 
+┣➤ dave(menu)
 ┣➤ private
 ┣➤ autoread
 ┣➤ autotyping
@@ -895,7 +895,7 @@ case 'help': {
 ┣➤ setmenuimage
 ┣➤ setmenuvideo
 ┣➤ antidelete
-┣➤setmenu
+┣➤ setmenu
 ┣➤ updatebot
 ┣➤ gitclone
 ┣➤ restart
@@ -927,6 +927,7 @@ case 'help': {
 ┣➤ setppbot
 ┣➤ delppbot
 ┗➤ listowner
+
 
 *GROUP MANAGEMENT*
 ┣➤ add
@@ -1205,25 +1206,28 @@ case 'help': {
 ┗➤ Bible
 `;
 
-  // ✅ Always send text as default, only use image/video if explicitly set AND URLs exist
+  // ✅ CORRECTED: Use reply() function for text mode
   if (mode === 'image' && imageUrl) {
     await venom.sendMessage(from, {
       image: { url: imageUrl },
-      caption: stylishReply(menuText)
+      caption: menuText
     }, { quoted: m });
   } else if (mode === 'video' && videoUrl) {
     await venom.sendMessage(from, {
       video: { url: videoUrl },
-      caption: stylishReply(menuText),
+      caption: menuText,
       gifPlayback: true
     }, { quoted: m });
   } else {
-    // ✅ DEFAULT: Always fallback to text
-    await venom.sendMessage(from, { text: stylishReply(menuText) }, { quoted: m });
+    // ✅ MUCH BETTER: Use the reply() function we defined earlier
+    await reply(menuText);
   }
 
   break;
 }
+
+
+
 
 
 // ================= SETPREFIX =================
