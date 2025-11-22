@@ -1,3 +1,5 @@
+
+
 const fs = require('fs');
 const pino = require('pino');
 const readline = require('readline');
@@ -33,6 +35,29 @@ const { loadSettings } = require('./davesettingmanager');
 global.settings = loadSettings();
 const app = express();
 const PORT = config.PORT || 3000;
+
+// Redirect temp storage away from system /tmp
+const customTemp = path.join(process.cwd(), 'temp');
+if (!fs.existsSync(customTemp)) fs.mkdirSync(customTemp, { recursive: true });
+process.env.TMPDIR = customTemp;
+process.env.TEMP = customTemp;
+process.env.TMP = customTemp;
+
+// Auto-cleaner every 3 hours
+setInterval(() => {
+  fs.readdir(customTemp, (err, files) => {
+    if (err) return;
+    for (const file of files) {
+      const filePath = path.join(customTemp, file);
+      fs.stat(filePath, (err, stats) => {
+        if (!err && Date.now() - stats.mtimeMs > 3 * 60 * 60 * 1000) {
+          fs.unlink(filePath, () => {});
+        }
+      });
+    }
+  });
+  console.log('🧹 Temp folder auto-cleaned');
+}, 3 * 60 * 60 * 1000);
 
 // Increase max listeners globally to prevent warnings
 require('events').EventEmitter.defaultMaxListeners = 20;
