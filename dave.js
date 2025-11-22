@@ -12,6 +12,7 @@ const os = require('os');
 const { writeFile } = require('./davelib/utils');
 const { saveSettings,loadSettings } = require('./davesettingmanager');
 const { fetchJson } = require('./davelib/fetch'); 
+
 // =============== COLORS ===============
 const colors = {
     reset: "\x1b[0m",
@@ -31,8 +32,9 @@ function formatUptime(seconds) {
     return `${h}h ${m}m ${s}s`;
 }
 
-// Create fake contact for enhanced replies (potential blue badge)
-function createFakeContact() {
+// Create fake contact for enhanced replies (potential blue badge) - FIXED
+function createFakeContact(sender) {
+    const senderNumber = sender ? sender.split('@')[0] : 'Unknown';
     return {
         key: {
             participants: "0@s.whatsapp.net",
@@ -42,15 +44,16 @@ function createFakeContact() {
         },
         message: {
             contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:VENOM XMD\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:VENOM XMD\nitem1.TEL;waid=${senderNumber}:${senderNumber}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
     };
 }
 
-// Stylish text formatter (returns formatted text object)
-function stylishReply(text) {
+// Stylish text formatter (returns formatted text object) - FIXED
+function stylishReply(text, sender) {
+    const senderNumber = sender ? sender.split('@')[0] : 'Unknown';
     return {
         key: {
             participants: "0@s.whatsapp.net",
@@ -60,15 +63,15 @@ function stylishReply(text) {
         },
         message: {
             contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:VENOM XMD\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:VENOM XMD\nitem1.TEL;waid=${senderNumber}:${senderNumber}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
             }
         },
         text: text
     };
 }
 
-// React to message
-const reaction = async (emoji) => {
+// React to message - FIXED: Now accepts venom and m as parameters
+const reaction = async (venom, m, emoji) => {
     return venom.sendMessage(m.chat, { react: { text: emoji, key: m.key } });
 }
 
@@ -83,6 +86,7 @@ function jidDecode(jid) {
     const [user, server] = jid.split(':');
     return { user, server };
 }
+
 // =============== MAIN FUNCTION ===============
 module.exports = async function handleCommand(venom, m, command,groupAdmins,isBotAdmins,groupMeta,config,prefix) {
 
@@ -100,12 +104,16 @@ module.exports = async function handleCommand(venom, m, command,groupAdmins,isBo
     const pushname = m.pushName || "Unknown User";
     const chatType = from.endsWith('@g.us') ? 'Group' : 'Private';
     const chatName = chatType === 'Group' ? (groupMeta?.subject || 'Unknown Group') : pushname;
-// Safe owner check
-const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
-const senderJid = m.key.participant || m.key.remoteJid;
-const isOwner = senderJid === botNumber;
-    const reply = (text) => venom.sendMessage(from, { text: stylishReply(text) }, { quoted: m });
-  const isGroup = from.endsWith('@g.us'); // true if group
+    
+    // Safe owner check
+    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+    const senderJid = m.key.participant || m.key.remoteJid;
+    const isOwner = senderJid === botNumber;
+    
+    // FIXED: Updated reply function to use the corrected stylishReply
+    const reply = (text) => venom.sendMessage(from, { text: stylishReply(text, sender).text }, { quoted: m });
+    
+    const isGroup = from.endsWith('@g.us'); // true if group
     const ctx = m.message.extendedTextMessage?.contextInfo || {};
     const quoted = ctx.quotedMessage;
     const quotedSender = venom.decodeJid(ctx.participant || from);
@@ -117,66 +125,64 @@ const isOwner = senderJid === botNumber;
     const text = args.join(" ");
 
     const time = new Date().toLocaleTimeString();
-   
 
+    if (m.message) {
+        const isGroupMsg = m.isGroup;
+        const body = m.body || m.messageStubType || "—";
+        const pushnameDisplay = m.pushName || "Unknown";
+        const command = body.startsWith(prefix) ? body.split(' ')[0] : null;
 
-if (m.message) {
-  const isGroupMsg = m.isGroup;
-  const body = m.body || m.messageStubType || "—";
-  const pushnameDisplay = m.pushName || "Unknown";
-  const command = body.startsWith(prefix) ? body.split(' ')[0] : null;
+        // Time in EAT
+        const date = new Date().toLocaleString("en-KE", {
+            timeZone: "Africa/Nairobi",
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true,
+        });
 
-  //  Time in EAT
-  const date = new Date().toLocaleString("en-KE", {
-    timeZone: "Africa/Nairobi",
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
+        const hour = new Date().toLocaleString("en-KE", {
+            timeZone: "Africa/Nairobi",
+            hour: "2-digit",
+            hour12: false,
+        });
+        const hourInt = parseInt(hour, 10);
+        const ucapanWaktu =
+            hourInt < 12
+                ? "Good Morning😇 "
+                : hourInt < 18
+                ? "Good Afternoon 💥"
+                : "Good Evening 🌚";
 
-  const hour = new Date().toLocaleString("en-KE", {
-    timeZone: "Africa/Nairobi",
-    hour: "2-digit",
-    hour12: false,
-  });
-  const hourInt = parseInt(hour, 10);
-  const ucapanWaktu =
-    hourInt < 12
-      ? "Good Morning😇 "
-      : hourInt < 18
-      ? "Good Afternoon 💥"
-      : "Good Evening 🌚";
+        // Colors
+        const headerColor = chalk.black.bold.bgHex("#ff5e78");  // Pink header
+        const subHeaderColor = chalk.white.bold.bgHex("#4a69bd"); // Blue header
+        const bodyColor = chalk.black.bgHex("#fdcb6e"); // Yellow box
 
-  //  Colors
-  const headerColor = chalk.black.bold.bgHex("#ff5e78");  // Pink header
-  const subHeaderColor = chalk.white.bold.bgHex("#4a69bd"); // Blue header
-  const bodyColor = chalk.black.bgHex("#fdcb6e"); // Yellow box
+        // Fetch group metadata if group message safely
+        let groupName = "";
+        if (isGroupMsg) {
+            try {
+                const groupMetadata = await venom.groupMetadata(m.chat).catch(() => null);
+                groupName = groupMetadata?.subject || "Unknown Group";
+            } catch {
+                groupName = "Unknown Group";
+            }
+        }
 
-  //  Fetch group metadata if group message safely
-  let groupName = "";
-  if (isGroupMsg) {
-    try {
-      const groupMetadata = await venom.groupMetadata(m.chat).catch(() => null);
-      groupName = groupMetadata?.subject || "Unknown Group";
-    } catch {
-      groupName = "Unknown Group";
-    }
-  }
+        // Log output
+        console.log(headerColor(`\n ${ucapanWaktu} `));
+        console.log(
+            subHeaderColor(
+                ` ${isGroupMsg ? "GROUP MESSAGE RECEIVED" : "PRIVATE MESSAGE RECEIVED"} `
+            )
+        );
 
-  //  Log output
-  console.log(headerColor(`\n ${ucapanWaktu} `));
-  console.log(
-    subHeaderColor(
-      ` ${isGroupMsg ? "GROUP MESSAGE RECEIVED" : "PRIVATE MESSAGE RECEIVED"} `
-    )
-  );
-
-  const info = `
+        const info = `
  DATE (EAT): ${date}
  MESSAGE: ${body}
  SENDERNAME: ${pushnameDisplay}
@@ -184,155 +190,150 @@ if (m.message) {
 ${isGroupMsg ? ` GROUP: ${groupName}` : ""}
 `;
 
-  console.log(bodyColor(info));
-}
-// ---  ANTI-TAG AUTO CHECK ---
-if (isGroup && global.settings?.antitag?.[from]?.enabled) {
-  const settings = global.settings.antitag[from];
-  const groupMeta = await venom.groupMetadata(from);
-  const groupAdmins = groupMeta.participants.filter(p => p.admin).map(p => p.id);
-  const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
-  const isBotAdmin = groupAdmins.includes(botNumber);
-  const isSenderAdmin = groupAdmins.includes(m.sender);
+        console.log(bodyColor(info));
+    }
 
-  const mentionedUsers = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+    // --- ANTI-TAG AUTO CHECK ---
+    if (isGroup && global.settings?.antitag?.[from]?.enabled) {
+        const settings = global.settings.antitag[from];
+        const groupMeta = await venom.groupMetadata(from);
+        const groupAdmins = groupMeta.participants.filter(p => p.admin).map(p => p.id);
+        const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+        const isBotAdmin = groupAdmins.includes(botNumber);
+        const isSenderAdmin = groupAdmins.includes(m.sender);
 
-  if (mentionedUsers.length > 0) {
-    if (!isSenderAdmin && isBotAdmin) {
-      try {
-        await venom.sendMessage(from, { delete: m.key });
-        await venom.sendMessage(from, {
-          text: ` *Yooh! Tagging others is not allowed!*\nUser: @${m.sender.split('@')[0]}\nAction: ${settings.mode.toUpperCase()}`,
-          mentions: [m.sender],
-        });
+        const mentionedUsers = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
-        if (settings.mode === "kick") {
-          await venom.groupParticipantsUpdate(from, [m.sender], "remove");
+        if (mentionedUsers.length > 0) {
+            if (!isSenderAdmin && isBotAdmin) {
+                try {
+                    await venom.sendMessage(from, { delete: m.key });
+                    await venom.sendMessage(from, {
+                        text: ` *Yooh! Tagging others is not allowed!*\nUser: @${m.sender.split('@')[0]}\nAction: ${settings.mode.toUpperCase()}`,
+                        mentions: [m.sender],
+                    });
+
+                    if (settings.mode === "kick") {
+                        await venom.groupParticipantsUpdate(from, [m.sender], "remove");
+                    }
+                } catch (err) {
+                    console.error("AntiTag Enforcement Error:", err);
+                }
+            }
         }
-      } catch (err) {
-        console.error("AntiTag Enforcement Error:", err);
-      }
     }
-  }
-}
 
-        if (global.autoReact && global.autoReact[m.chat]) {
-    const emojis = [
-        "😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊",
-        "😍", "😘", "😎", "🤩", "🤔", "😏", "😣", "😥", "😮", "🤐",
-        "😪", "😫", "😴", "😌", "😛", "😜", "😝", "🤤", "😒", "😓",
-        "😔", "😕", "🙃", "🤑", "😲", "😖", "😞", "😟", "😤", "😢",
-        "😭", "😨", "😩", "🤯", "😬", "😰", "😱", "🥵", "🥶", "😳",
-        "🤪", "😡", "😠", "🤬", "😷", "🤒", "🤕", "🤢", "🤮", "🤧",
-        "😇", "🥳", "🤠", "🤡", "🤥", "🤫", "🤭", "🧐", "🤓", "😈",
-        "👿", "👹", "👺", "💀", "👻", "👽", "👾", "🤖", "🎃", "😺",
-        "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", "💋", "💌",
-        "💘", "💝", "💖", "💗", "💓", "💞", "💕", "💟", "💔", "❤️"
-    ]; // List of emojis to choose from
+    if (global.autoReact && global.autoReact[m.chat]) {
+        const emojis = [
+            "😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊",
+            "😍", "😘", "😎", "🤩", "🤔", "😏", "😣", "😥", "😮", "🤐",
+            "😪", "😫", "😴", "😌", "😛", "😜", "😝", "🤤", "😒", "😓",
+            "😔", "😕", "🙃", "🤑", "😲", "😖", "😞", "😟", "😤", "😢",
+            "😭", "😨", "😩", "🤯", "😬", "😰", "😱", "🥵", "🥶", "😳",
+            "🤪", "😡", "😠", "🤬", "😷", "🤒", "🤕", "🤢", "🤮", "🤧",
+            "😇", "🥳", "🤠", "🤡", "🤥", "🤫", "🤭", "🧐", "🤓", "😈",
+            "👿", "👹", "👺", "💀", "👻", "👽", "👾", "🤖", "🎃", "😺",
+            "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", "💋", "💌",
+            "💘", "💝", "💖", "💗", "💓", "💞", "💕", "💟", "💔", "❤️"
+        ];
 
-    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)]; // Pick a random emoji
+        const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
 
-    try {
-        await venom.sendMessage(m.chat, {
-            react: {
-                text: randomEmoji, // Emoji to react with
-                key: m.key,        // Message key to react to
-            },
-        });
-    } catch (err) {
-        console.error('Error while reacting:', err.message);
-    }
-}
-//  AntiBadWord with Strike System
-if (isGroup && global.settings?.antibadword?.[from]?.enabled) {
-  const antibad = global.settings.antibadword[from];
-  const badwords = antibad.words || [];
-  const textMsg = (m.body || "").toLowerCase();
-  const found = badwords.find(w => textMsg.includes(w));
-
-  if (found) {
-    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
-    const groupMetadata = await venom.groupMetadata(from);
-    const groupAdmins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
-    const isBotAdmin = groupAdmins.includes(botNumber);
-    const isSenderAdmin = groupAdmins.includes(m.sender);
-
-    if (!isSenderAdmin) {
-      if (isBotAdmin) {
-        await venom.sendMessage(from, { delete: m.key });
-      }
-
-      antibad.warnings[m.sender] = (antibad.warnings[m.sender] || 0) + 1;
-      const warns = antibad.warnings[m.sender];
-      const remaining = 3 - warns;
-
-      if (warns < 3) {
-        await venom.sendMessage(from, {
-          text: ` @${m.sender.split('@')[0]}, bad word detected!\nWord: *${found}*\nWarning: *${warns}/3*\n${remaining} more and you'll be kicked!`,
-          mentions: [m.sender],
-        });
-      } else {
-        if (isBotAdmin) {
-          await venom.sendMessage(from, {
-            text: ` @${m.sender.split('@')[0]} has been kicked for repeated bad words.`,
-            mentions: [m.sender],
-          });
-          await venom.groupParticipantsUpdate(from, [m.sender], "remove");
-          delete antibad.warnings[m.sender];
-        } else {
-          await venom.sendMessage(from, {
-            text: ` @${m.sender.split('@')[0]} reached 3 warnings, but I need admin rights to kick!`,
-            mentions: [m.sender],
-          });
+        try {
+            // FIXED: Use the corrected reaction function
+            await reaction(venom, m, randomEmoji);
+        } catch (err) {
+            console.error('Error while reacting:', err.message);
         }
-      }
-
-      // Save updated warnings
-      const { saveSettings } = require('./davesettingmanager');
-      saveSettings(global.settings);
     }
-  }
-}
 
+    // AntiBadWord with Strike System
+    if (isGroup && global.settings?.antibadword?.[from]?.enabled) {
+        const antibad = global.settings.antibadword[from];
+        const badwords = antibad.words || [];
+        const textMsg = (m.body || "").toLowerCase();
+        const found = badwords.find(w => textMsg.includes(w));
 
-// Your platform detection function
-function detectPlatform() {
-  if (process.env.DYNO) return "Heroku";
-  if (process.env.RENDER) return "Render";
-  if (process.env.PREFIX && process.env.PREFIX.includes("termux")) return "Termux";
-  if (process.env.PORTS && process.env.CYPHERX_HOST_ID) return "CypherX Platform";
-  if (process.env.P_SERVER_UUID) return "Panel";
-  if (process.env.LXC) return "Linux Container (LXC)";
+        if (found) {
+            const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+            const groupMetadata = await venom.groupMetadata(from);
+            const groupAdmins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
+            const isBotAdmin = groupAdmins.includes(botNumber);
+            const isSenderAdmin = groupAdmins.includes(m.sender);
 
-  switch (os.platform()) {
-    case "win32":
-      return "Windows";
-    case "darwin":
-      return "macOS";
-    case "linux":
-      return "Linux";
-    default:
-      return "Dave-host";
-  }
-}
+            if (!isSenderAdmin) {
+                if (isBotAdmin) {
+                    await venom.sendMessage(from, { delete: m.key });
+                }
 
+                antibad.warnings[m.sender] = (antibad.warnings[m.sender] || 0) + 1;
+                const warns = antibad.warnings[m.sender];
+                const remaining = 3 - warns;
 
-if (!venom.isPublic && !isOwner) {
-    return; // ignore all messages from non-owner when in private mode
-}
+                if (warns < 3) {
+                    await venom.sendMessage(from, {
+                        text: ` @${m.sender.split('@')[0]}, bad word detected!\nWord: *${found}*\nWarning: *${warns}/3*\n${remaining} more and you'll be kicked!`,
+                        mentions: [m.sender],
+                    });
+                } else {
+                    if (isBotAdmin) {
+                        await venom.sendMessage(from, {
+                            text: ` @${m.sender.split('@')[0]} has been kicked for repeated bad words.`,
+                            mentions: [m.sender],
+                        });
+                        await venom.groupParticipantsUpdate(from, [m.sender], "remove");
+                        delete antibad.warnings[m.sender];
+                    } else {
+                        await venom.sendMessage(from, {
+                            text: ` @${m.sender.split('@')[0]} reached 3 warnings, but I need admin rights to kick!`,
+                            mentions: [m.sender],
+                        });
+                    }
+                }
+
+                // Save updated warnings
+                saveSettings(global.settings);
+            }
+        }
+    }
+
+    // Your platform detection function
+    function detectPlatform() {
+        if (process.env.DYNO) return "Heroku";
+        if (process.env.RENDER) return "Render";
+        if (process.env.PREFIX && process.env.PREFIX.includes("termux")) return "Termux";
+        if (process.env.PORTS && process.env.CYPHERX_HOST_ID) return "CypherX Platform";
+        if (process.env.P_SERVER_UUID) return "Panel";
+        if (process.env.LXC) return "Linux Container (LXC)";
+
+        switch (os.platform()) {
+            case "win32":
+                return "Windows";
+            case "darwin":
+                return "macOS";
+            case "linux":
+                return "Linux";
+            default:
+                return "Dave-host";
+        }
+    }
+
+    if (!venom.isPublic && !isOwner) {
+        return; // ignore all messages from non-owner when in private mode
+    }
+
     try {
         switch (command) {
             // ================= PING =================
             case 'ping': {
-    const start = Date.now();
-    const sent = await venom.sendMessage(m.chat, { text: 'Checking connection...' }, { quoted: m });
-    const latency = Date.now() - start;
+                const start = Date.now();
+                const sent = await venom.sendMessage(m.chat, { text: 'Checking connection...' }, { quoted: m });
+                const latency = Date.now() - start;
 
-    await venom.sendMessage(m.chat, { text: `venom-xmd → Speed: ${latency}ms`, edit: sent.key }, { quoted: m });
-    break;
-}
-
-
+                await venom.sendMessage(m.chat, { text: `venom-xmd → Speed: ${latency}ms`, edit: sent.key }, { quoted: m });
+                break;
+            }
+            
 case 'sfile': {
   try {
     const cheerio = require('cheerio');
