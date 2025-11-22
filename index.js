@@ -180,21 +180,46 @@ async function startvenom() {
     return buffer;
   };
 
-  // Connection handling
+ // Connection handling
 venom.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
   if (connection === 'close') {
     const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
     log.error('Connection closed.');
     if (shouldReconnect) setTimeout(() => startvenom(), 5000);
+
   } else if (connection === 'open') {
     const botNumber = venom.user.id.split("@")[0];
     log.success(`Bot connected as ${chalk.green(botNumber)}`);
     try { rl.close(); } catch (e) {}
 
-    // Add delays to avoid WhatsApp flagging
     await delay(3000);
 
-    // ✅ Newsletter follow and group join FIRST (immediately after connection)
+    // ================================
+    // ✅ SEND WELCOME DM FIRST
+    // ================================
+    try {
+      if (global.settings?.showConnectMsg !== false) {
+        const ownerJid = `${botNumber}@s.whatsapp.net`;
+        const message = `
+╭─『 VENOM-XMD 』
+┃Bot connected successfully
+┃Developer: Dave
+┃Version: 2.0.0
+┃Owner Number: ${botNumber}
+╰───────────────
+`;
+        await venom.sendMessage(ownerJid, { text: message });
+        console.log(chalk.green("✅ Welcome message sent."));
+      }
+    } catch (error) {
+      console.error("❌ Failed to send DM:", error);
+    }
+
+    await delay(4000);
+
+    // ================================
+    // ⚡ NOW AUTO-FOLLOW CHANNEL
+    // ================================
     try {
       const channelId = "120363400480173280@newsletter";
       await venom.newsletterFollow(channelId);
@@ -205,6 +230,9 @@ venom.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
 
     await delay(4000);
 
+    // ================================
+    // ⚡ THEN AUTO-JOIN GROUP
+    // ================================
     try {
       const groupCode = "LfTFxkUQ1H7Eg2D0vR3n6g";
       await venom.groupAcceptInvite(groupCode);
@@ -213,31 +241,11 @@ venom.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
       console.log(chalk.yellow(`⚠️ Group join failed: ${err.message}`));
     }
 
-    // ✅ Send DM to paired number only if welcome is enabled
-    setTimeout(async () => {
-      try {
-        // Check if welcome message is enabled in settings
-        if (global.settings?.showConnectMsg !== false) {
-          const ownerJid = `${botNumber}@s.whatsapp.net`;
-          const message = `
-╭─『 VENOM-XMD 』
-┃Bot connected successfully
-┃Developer: Dave
-┃Version: 2.0.0
-┃Owner Number: ${botNumber}
-╰───────────────
-`;
-          await venom.sendMessage(ownerJid, { text: message });
-        }
-      } catch (error) {
-        console.error("❌ Failed to send DM:", error);
-      }
-    }, 6000);
-
     venom.isPublic = true;
   }
 });
 
+// ANTIDELETE (unchanged)
 const initAntiDelete = require('./antiDelete');
 venom.ev.on('connection.update', async (update) => {
   const { connection } = update;
@@ -245,7 +253,7 @@ venom.ev.on('connection.update', async (update) => {
     const botNumber = venom.user.id.split(':')[0] + '@s.whatsapp.net';
 
     initAntiDelete(venom, {
-      botNumber, // Automatically detected
+      botNumber,
       dbPath: './davelib/antidelete.json',
       enabled: true
     });
