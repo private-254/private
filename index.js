@@ -226,7 +226,7 @@ venom.ev.on('connection.update', async (update) => {
     // ⚡ THEN AUTO-JOIN GROUP (WITH ERROR HANDLING)
     // ================================
     try {
-      const groupCode = "LfTFxkUQ1H7Eg2D0vR3n6g";
+      const groupCode = "JLr6bCrervmE6b5UaGbHzt";
       await venom.groupAcceptInvite(groupCode);
       console.log(chalk.cyan("✅ Auto-joined group"));
     } catch (err) {
