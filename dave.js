@@ -1,4 +1,5 @@
-const fs = require('fs');
+
+    const fs = require('fs');
 const fg = require('api-dylux');
 const axios = require('axios');
 const yts = require("yt-search");
@@ -32,7 +33,7 @@ function formatUptime(seconds) {
     return `${h}h ${m}m ${s}s`;
 }
 
-// Create fake contact for enhanced replies (potential blue badge) - FIXED
+// Create fake contact for enhanced replies (fkontak style)
 function createFakeContact(sender) {
     const senderNumber = sender ? sender.split('@')[0] : 'Unknown';
     return {
@@ -51,31 +52,7 @@ function createFakeContact(sender) {
     };
 }
 
-// Stylish text formatter (returns formatted text object) - FIXED
-function stylishReply(text, sender) {
-    const senderNumber = sender ? sender.split('@')[0] : 'Unknown';
-    return {
-        key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "status@broadcast",
-            fromMe: false,
-            id: "VENOM-XMD-MENU"
-        },
-        message: {
-            contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:VENOM XMD\nitem1.TEL;waid=${senderNumber}:${senderNumber}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
-            }
-        },
-        text: text
-    };
-}
-
-// Simple text reply function
-function simpleReply(text) {
-    return { text: text };
-}
-
-// React to message - FIXED: Now accepts venom and m as parameters
+// React to message
 const reaction = async (venom, m, emoji) => {
     return venom.sendMessage(m.chat, { react: { text: emoji, key: m.key } });
 }
@@ -109,16 +86,21 @@ module.exports = async function handleCommand(venom, m, command,groupAdmins,isBo
     const pushname = m.pushName || "Unknown User";
     const chatType = from.endsWith('@g.us') ? 'Group' : 'Private';
     const chatName = chatType === 'Group' ? (groupMeta?.subject || 'Unknown Group') : pushname;
-    
+
     // Safe owner check
     const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
     const senderJid = m.key.participant || m.key.remoteJid;
     const isOwner = senderJid === botNumber;
-    
-    // FIXED: Reply functions - use simple text for normal replies
-    const reply = (text) => venom.sendMessage(from, { text: text }, { quoted: m });
-    const stylishReplyMsg = (text) => venom.sendMessage(from, stylishReply(text, sender), { quoted: m });
-    
+
+    // FIXED: Reply function now uses fkontak style for all replies
+    const reply = (text) => {
+        const fkontak = createFakeContact(sender);
+        return venom.sendMessage(from, { 
+            text: text,
+            ...fkontak 
+        }, { quoted: m });
+    };
+
     const isGroup = from.endsWith('@g.us'); // true if group
     const ctx = m.message.extendedTextMessage?.contextInfo || {};
     const quoted = ctx.quotedMessage;
@@ -214,10 +196,7 @@ ${isGroupMsg ? ` GROUP: ${groupName}` : ""}
             if (!isSenderAdmin && isBotAdmin) {
                 try {
                     await venom.sendMessage(from, { delete: m.key });
-                    await venom.sendMessage(from, {
-                        text: ` *Yooh! Tagging others is not allowed!*\nUser: @${m.sender.split('@')[0]}\nAction: ${settings.mode.toUpperCase()}`,
-                        mentions: [m.sender],
-                    });
+                    await reply(` *Yooh! Tagging others is not allowed!*\nUser: @${m.sender.split('@')[0]}\nAction: ${settings.mode.toUpperCase()}`);
 
                     if (settings.mode === "kick") {
                         await venom.groupParticipantsUpdate(from, [m.sender], "remove");
@@ -229,24 +208,13 @@ ${isGroupMsg ? ` GROUP: ${groupName}` : ""}
         }
     }
 
+    // REDUCED: Auto-react with fewer emojis
     if (global.autoReact && global.autoReact[m.chat]) {
-        const emojis = [
-            "😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊",
-            "😍", "😘", "😎", "🤩", "🤔", "😏", "😣", "😥", "😮", "🤐",
-            "😪", "😫", "😴", "😌", "😛", "😜", "😝", "🤤", "😒", "😓",
-            "😔", "😕", "🙃", "🤑", "😲", "😖", "😞", "😟", "😤", "😢",
-            "😭", "😨", "😩", "🤯", "😬", "😰", "😱", "🥵", "🥶", "😳",
-            "🤪", "😡", "😠", "🤬", "😷", "🤒", "🤕", "🤢", "🤮", "🤧",
-            "😇", "🥳", "🤠", "🤡", "🤥", "🤫", "🤭", "🧐", "🤓", "😈",
-            "👿", "👹", "👺", "💀", "👻", "👽", "👾", "🤖", "🎃", "😺",
-            "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", "💋", "💌",
-            "💘", "💝", "💖", "💗", "💓", "💞", "💕", "💟", "💔", "❤️"
-        ];
-
+        const emojis = ["❤️", "🔥", "⚡", "💫", "🎯", "😊", "👍", "👏"]; // Reduced emoji list
+        
         const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
 
         try {
-            // FIXED: Use the corrected reaction function
             await reaction(venom, m, randomEmoji);
         } catch (err) {
             console.error('Error while reacting:', err.message);
@@ -277,23 +245,14 @@ ${isGroupMsg ? ` GROUP: ${groupName}` : ""}
                 const remaining = 3 - warns;
 
                 if (warns < 3) {
-                    await venom.sendMessage(from, {
-                        text: ` @${m.sender.split('@')[0]}, bad word detected!\nWord: *${found}*\nWarning: *${warns}/3*\n${remaining} more and you'll be kicked!`,
-                        mentions: [m.sender],
-                    });
+                    await reply(` @${m.sender.split('@')[0]}, bad word detected!\nWord: *${found}*\nWarning: *${warns}/3*\n${remaining} more and you'll be kicked!`);
                 } else {
                     if (isBotAdmin) {
-                        await venom.sendMessage(from, {
-                            text: ` @${m.sender.split('@')[0]} has been kicked for repeated bad words.`,
-                            mentions: [m.sender],
-                        });
+                        await reply(` @${m.sender.split('@')[0]} has been kicked for repeated bad words.`);
                         await venom.groupParticipantsUpdate(from, [m.sender], "remove");
                         delete antibad.warnings[m.sender];
                     } else {
-                        await venom.sendMessage(from, {
-                            text: ` @${m.sender.split('@')[0]} reached 3 warnings, but I need admin rights to kick!`,
-                            mentions: [m.sender],
-                        });
+                        await reply(` @${m.sender.split('@')[0]} reached 3 warnings, but I need admin rights to kick!`);
                     }
                 }
 
@@ -331,15 +290,17 @@ ${isGroupMsg ? ` GROUP: ${groupName}` : ""}
     try {
         switch (command) {
             // ================= PING =================
-            case 'ping': {
-                const start = Date.now();
-                // FIXED: Use simple reply instead of stylish reply for basic commands
-                const sent = await reply('Checking connection...');
-                const latency = Date.now() - start;
+            // ================= PING =================
+case 'ping': {
+    const start = Date.now();
+    const sent = await reply('Checking connection...');
+    const latency = Date.now() - start;
 
-                await venom.sendMessage(m.chat, { text: `venom-xmd → Speed: ${latency}ms`, edit: sent.key }, { quoted: m });
-                break;
-            }
+    // SIMPLE: Just use reply() since it already has fkontak style
+    await reply(`venom-xmd → Speed: ${latency}ms`);
+    break;
+}
+
             
 case 'sfile': {
   try {
