@@ -323,27 +323,25 @@ async function autoTypingPrivate(m) {
   await venom.sendPresenceUpdate("composing", from).catch(console.error);
 }
 
-// ================== Status Handler ==================
-async function handleStatus(m) {
-  try {
-    // Only act on status updates (ignore chats)
-    if (m.key?.remoteJid !== 'status@broadcast') return;
-    
-    // Don't react to own status
-    if (m.key?.participant === venom.user.id) return;
+// FIX: Single messages.upsert listener to prevent MaxListeners warning
+venom.ev.on('messages.upsert', async ({ messages }) => {
+  const m = messages[0];
+  if (!m.message) return;
 
-    console.log('📱 STATUS DETECTED - Processing...');
+  // Handle ephemeral messages
+  m.message = Object.keys(m.message)[0] === 'ephemeralMessage'
+    ? m.message.ephemeralMessage.message
+    : m.message;
 
-    // Small random delay before acting (human-like)
-    await delay(1000 + Math.floor(Math.random() * 2000));
-
-    // ✅ Auto View
-    if (global.settings.autoviewstatus) {
+  // SIMPLE STATUS VIEWING - Like the other bot (TRUE BY DEFAULT)
+  if (m.key && m.key.remoteJid === 'status@broadcast') {
+    // Auto view status (true by default)
+    if (global.settings.autoviewstatus !== false) {
       await venom.readMessages([m.key]);
       console.log('👀 Status viewed');
     }
 
-    // ✅ Auto React
+    // Auto react to status
     if (global.settings.autoreactstatus) {
       let emoji = global.settings.statusReactEmojis || ["💙","❤️", "🌚","😍", "✅"];
       let sigma = emoji[Math.floor(Math.random() * emoji.length)];
@@ -355,28 +353,11 @@ async function handleStatus(m) {
       );
       console.log('🎭 Status reacted with:', sigma);
     }
-  } catch (err) {
-    console.error('Status handler error:', err);
   }
-}
-
-
-// FIX: Single messages.upsert listener to prevent MaxListeners warning
-venom.ev.on('messages.upsert', async ({ messages }) => {
-  const m = messages[0];
-  if (!m.message) return;
-
-  // Handle ephemeral messages
-  m.message = Object.keys(m.message)[0] === 'ephemeralMessage'
-    ? m.message.ephemeralMessage.message
-    : m.message;
 
   await autoReadPrivate(m);
   await autoRecordPrivate(m);
   await autoTypingPrivate(m);
-
-  // Handle status updates
-  await handleStatus(m);
 
   // Group stats handling
   if (m?.message && !m.key.fromMe) {
