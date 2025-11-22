@@ -434,6 +434,88 @@ case 'checkbotname': {
   break;
 }
 
+// ================= AUTO VIEW STATUS =================
+case 'autoviewstatus':
+case 'autostatusview':
+case 'viewstatus':
+case 'statusview': {
+    try {
+        // Only bot owner can use this
+        if (!isOwner) return reply("❌ Only the bot owner can toggle auto-view status!");
+
+        const option = args[0]?.toLowerCase();
+
+        // Use your existing settings structure
+        global.settings = global.settings || { autoviewstatus: true };
+
+        if (option === 'on' || option === 'enable') {
+            global.settings.autoviewstatus = true;
+            saveSettings(global.settings);
+            return reply("✅ *Auto-View Status enabled!* The bot will now automatically view status updates.");
+        }
+
+        if (option === 'off' || option === 'disable') {
+            global.settings.autoviewstatus = false;
+            saveSettings(global.settings);
+            return reply("❌ *Auto-View Status disabled!* The bot will no longer view status updates.");
+        }
+
+        // Show current status
+        return reply(
+            `👁️ *Auto-View Status Settings*\n\n` +
+            `• Status: ${global.settings.autoviewstatus ? "✅ ON" : "❌ OFF"}\n\n` +
+            `Usage:\n` +
+            `- ${prefix}autoviewstatus on\n` +
+            `- ${prefix}autoviewstatus off`
+        );
+
+    } catch (err) {
+        console.error("AutoView Status Command Error:", err);
+        reply("❌ An error occurred while updating auto-view status settings.");
+    }
+    break;
+}
+
+// ================= AUTO READ MESSAGES =================
+case 'autoread':
+case 'autoreadmessages':
+case 'readmessages': {
+    try {
+        // Only bot owner can use this
+        if (!isOwner) return reply("❌ Only the bot owner can toggle auto-read messages!");
+
+        const option = args[0]?.toLowerCase();
+
+        // Use your existing autoread settings structure
+        global.settings = global.settings || { autoread: { enabled: false } };
+
+        if (option === 'on' || option === 'enable') {
+            global.settings.autoread.enabled = true;
+            saveSettings(global.settings);
+            return reply("✅ *Auto-Read Messages enabled!* The bot will now automatically mark messages as read.");
+        }
+
+        if (option === 'off' || option === 'disable') {
+            global.settings.autoread.enabled = false;
+            saveSettings(global.settings);
+            return reply("❌ *Auto-Read Messages disabled!* The bot will no longer mark messages as read.");
+        }
+
+        // Show current status
+        return reply(
+            `📖 *Auto-Read Messages Settings*\n\n` +
+            `• Status: ${global.settings.autoread?.enabled ? "✅ ON" : "❌ OFF"}\n\n` +
+            `Usage:\n` +
+            `- ${prefix}autoread on\n` +
+            `- ${prefix}autoread off`
+        );
+
+    } catch (err) {
+        console.error("AutoRead Command Error:", err);
+        reply("❌ An error occurred while updating auto-read settings.");
+    }
+    break;
+}
 // ================= AUTO REACT MESSAGES =================
 case 'areact':
 case 'autoreactmessages':
