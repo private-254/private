@@ -151,12 +151,6 @@ async function startvenom() {
 });
 
   venom.ev.on('creds.update', saveCreds);
-  const createToxxicStore = require('./davelib/basestore');
-const store = createToxxicStore('./store', {
-  maxMessagesPerChat: 5,  
-  memoryOnly: false 
-});
-
     store.bind(venom.ev);
 
   // Pairing code if not registered
