@@ -316,10 +316,9 @@ ${isGroupMsg ? ` GROUP: ${groupName}` : ""}
         }
     }
 
-    if (!venom.isPublic && !isOwner) {
-        return; // ignore all messages from non-owner when in private mode
-    }
-
+   if (!(global.settings.mode === "public") && !isOwner) {
+    return; // ignore all messages from non-owner when in private mode
+}
     try {
         switch (command) {
             // ================= PING =================
