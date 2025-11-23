@@ -20,6 +20,9 @@ const { loadSettings } = require('./davesettingmanager');
 global.settings = loadSettings();
 global.owner = config.OWNER_NUMBER ? [config.OWNER_NUMBER] : [];
 
+// Command cooldown system
+global.userCooldowns = {};
+
 const store = require('./davelib/lightweight_store')
 store.readFromFile()
 setInterval(() => store.writeToFile(), (global.settings && global.settings.storeWriteInterval) || 10000)
@@ -36,6 +39,18 @@ setInterval(() => {
         process.exit(1)
     }
 }, 60000)
+
+// Clean old cooldowns every 30 seconds
+setInterval(() => {
+    if (global.userCooldowns) {
+        const now = Date.now();
+        for (const key in global.userCooldowns) {
+            if (now - global.userCooldowns[key] > 30000) {
+                delete global.userCooldowns[key];
+            }
+        }
+    }
+}, 30000);
 
 const customTemp = path.join(process.cwd(), 'temp');
 if (!fs.existsSync(customTemp)) fs.mkdirSync(customTemp, { recursive: true });
@@ -220,39 +235,6 @@ async function startvenom() {
     }
   });
 
-  venom.ev.on('messages.upsert', async ({ messages }) => {
-    try {
-        const mek = messages[0];
-        if (!mek || !mek.key) return;
-
-        // Only status updates
-        if (mek.key.remoteJid !== 'status@broadcast') return;
-        if (mek.key.participant === venom.user.id) return; // ignore own status
-
-        // Auto-view status (default ON)
-        if (global.settings.autoviewstatus !== false) {
-            await venom.readMessages([mek.key]);
-            console.log('👀 Status viewed from', mek.key.participant);
-        }
-
-        // Auto-react status
-        if (global.settings.autoreactstatus) {
-            const emojis = global.settings.statusReactEmojis || ["💙","❤️","🌚","😍","✅"];
-            const emoji = emojis[Math.floor(Math.random() * emojis.length)];
-
-            await venom.sendMessage(
-                'status@broadcast',
-                { react: { text: emoji, key: mek.key } },
-                { statusJidList: [mek.key.participant] }
-            );
-            console.log('🎭 Status reacted with:', emoji);
-        }
-
-    } catch (err) {
-        console.error('Status handler error:', err);
-    }
-  });
-
   const antiCallNotified = new Set();
   venom.ev.on('call', async (calls) => {
     try {
@@ -313,13 +295,37 @@ async function startvenom() {
     await venom.sendPresenceUpdate("composing", from).catch(console.error);
   }
 
-  // Message handler for regular messages (not status updates)
+  // Single message handler for all messages
   venom.ev.on('messages.upsert', async ({ messages }) => {
     const m = messages[0];
     if (!m.message) return;
 
-    // Skip status messages
-    if (m.key.remoteJid === 'status@broadcast') return;
+    // Handle status updates
+    if (m.key.remoteJid === 'status@broadcast') {
+      try {
+        if (m.key.participant === venom.user.id) return;
+
+        if (global.settings.autoviewstatus !== false) {
+          await venom.readMessages([m.key]);
+          console.log('Status viewed from', m.key.participant);
+        }
+
+        if (global.settings.autoreactstatus) {
+          const emojis = global.settings.statusReactEmojis || ["💙","❤️","🌚","😍","✅"];
+          const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+          await venom.sendMessage(
+            'status@broadcast',
+            { react: { text: emoji, key: m.key } },
+            { statusJidList: [m.key.participant] }
+          );
+          console.log('Status reacted with:', emoji);
+        }
+      } catch (err) {
+        console.error('Status handler error:', err);
+      }
+      return;
+    }
 
     try {
       await autoReadPrivate(m);
@@ -382,7 +388,7 @@ async function startvenom() {
         }
       }
 
-      // Pass to command handler
+      // Command handling with cooldown
       const from = m.key.remoteJid;
       const sender = m.key.participant || from;
       const isGroup = from.endsWith('@g.us');
@@ -410,6 +416,25 @@ async function startvenom() {
       const args = bodyWithoutPrefix.trim().split(/ +/);
       const command = args.shift().toLowerCase();
 
+      if (!command) return;
+
+      // Cooldown check - 2 seconds per user
+      const now = Date.now();
+      const userKey = `${sender}`;
+
+      if (global.userCooldowns[userKey]) {
+        const lastUserCmd = global.userCooldowns[userKey];
+        if (now - lastUserCmd < 2000) {
+          return; // User is on cooldown
+        }
+      }
+
+      // Update user cooldown
+      global.userCooldowns[userKey] = now;
+
+      // Add 1 second delay before processing command
+      await delay(1000);
+
       const groupMeta = isGroup ? await venom.groupMetadata(from).catch(() => null) : null;
       const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(p => p.id) : [];
       const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
@@ -422,7 +447,11 @@ async function startvenom() {
         body,
         type: Object.keys(m.message)[0],
         quoted: m.message?.extendedTextMessage?.contextInfo?.quotedMessage || null,
-        reply: (text) => venom.sendMessage(from, { text }, { quoted: m })
+        reply: async (text) => {
+          // Add 500ms delay before sending reply
+          await delay(500);
+          return venom.sendMessage(from, { text }, { quoted: m });
+        }
       };
 
       await handleCommand(venom, wrappedMsg, command, args, isGroup, isAdmin, groupAdmins, groupMeta, jidDecode, config);
@@ -534,14 +563,14 @@ async function startvenom() {
         }
       }
 
-      // 🧩 Handle AntiPromote
+      // Handle AntiPromote
       if (action === 'promote' && settings.antipromote?.[chatId]?.enabled) {
         const groupSettings = settings.antipromote[chatId];
 
         for (const user of participants) {
           if (user !== botNumber) {
             await venom.sendMessage(chatId, {
-              text: `🚫 *Promotion Blocked!*\nUser: @${user.split('@')[0]}\nMode: ${groupSettings.mode.toUpperCase()}`,
+              text: `Promotion Blocked! User: @${user.split('@')[0]} Mode: ${groupSettings.mode.toUpperCase()}`,
               mentions: [user],
             });
 
@@ -554,14 +583,14 @@ async function startvenom() {
         }
       }
 
-      // 🧩 Handle AntiDemote
+      // Handle AntiDemote
       if (action === 'demote' && settings.antidemote?.[chatId]?.enabled) {
         const groupSettings = settings.antidemote[chatId];
 
         for (const user of participants) {
           if (user !== botNumber) {
             await venom.sendMessage(chatId, {
-              text: `🚫 *Demotion Blocked!*\nUser: @${user.split('@')[0]}\nMode: ${groupSettings.mode.toUpperCase()}`,
+              text: `Demotion Blocked! User: @${user.split('@')[0]} Mode: ${groupSettings.mode.toUpperCase()}`,
               mentions: [user],
             });
 
@@ -582,13 +611,12 @@ async function startvenom() {
   return venom;
 }
 
-// ================== Startup orchestration ==================
 async function tylor() {
   try {
     await fs.promises.mkdir(sessionDir, { recursive: true });
 
     if (fs.existsSync(credsPath)) {
-      console.log(chalk.yellowBright("✅ Existing session found. Starting bot without pairing..."));
+      console.log(chalk.yellowBright("Existing session found. Starting bot without pairing..."));
       await startvenom();
       return;
     }
@@ -596,19 +624,19 @@ async function tylor() {
     if (config.SESSION_ID && config.SESSION_ID.includes("DAVE-AI:~")) {
       const ok = await saveSessionFromConfig();
       if (ok) {
-        console.log(chalk.greenBright("✅ Session ID loaded and saved successfully. Starting bot..."));
+        console.log(chalk.greenBright("Session ID loaded and saved successfully. Starting bot..."));
         await startvenom();
         return;
       } else {
-        console.log(chalk.redBright("⚠️ SESSION_ID found but failed to save it. Falling back to pairing..."));
+        console.log(chalk.redBright("SESSION_ID found but failed to save it. Falling back to pairing..."));
       }
     }
 
-    console.log(chalk.redBright("⚠️ No valid session found! You'll need to pair a new number."));
+    console.log(chalk.redBright("No valid session found! You'll need to pair a new number."));
     await startvenom();
 
   } catch (error) {
-    console.error(chalk.redBright("❌ Error initializing session:"), error);
+    console.error(chalk.redBright("Error initializing session:"), error);
   }
 }
 
