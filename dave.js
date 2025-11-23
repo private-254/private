@@ -338,6 +338,28 @@ case 'ping': {
     break;
 }
 
+
+case 'private':
+case 'self': {
+    if (!isOwner) return reply("❌ This command is for owner-only.");
+
+    global.settings.mode = "private"; // switch mode
+    saveSettings(global.settings);     // persist to settings.json
+
+    await reply("✅ Bot switched to *private mode*. Only the owner can use commands now.");
+    break;
+}
+
+case 'public': {
+    if (!isOwner) return reply("❌ This command is for owner-only.");
+
+    global.settings.mode = "public";  // switch mode
+    saveSettings(global.settings);    // persist to settings.json
+
+    await reply("🌍 Bot switched to *public mode*. Everyone can use commands now.");
+    break;
+}
+
 // ================= AUTO REACT STATUS =================
 case 'autoreactstatus':
 case 'autostatusreact':
