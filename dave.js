@@ -1261,17 +1261,18 @@ case 'anticall': {
   if (!text) return reply('Usage: .anticall on / off');
 
   if (text.toLowerCase() === 'on') {
-    global.anticallEnabled = true;
+    global.settings.anticall = true;       // save in settings object
+    saveSettings(global.settings);          // persist to settings.json
     reply('Anticall has been enabled! Calls will be automatically rejected.');
   } else if (text.toLowerCase() === 'off') {
-    global.anticallEnabled = false;
+    global.settings.anticall = false;      // save in settings object
+    saveSettings(global.settings);          // persist to settings.json
     reply('Anticall has been disabled! Calls will not be rejected.');
   } else {
     reply('Invalid option. Use .anticall on or .anticall off');
   }
   break;
 }
-
 
                                 case 'alive':
                                 case 'runtime':
@@ -5327,41 +5328,79 @@ Last updated: ${new Date().toLocaleString()}
                 break;
             }
 
-            // ================= TIKTOK =================
-            case 'tiktok': {
-                try {
-                    if (!args[0]) return reply(` Provide a TikTok link.`);
-                    await reply(" Fetching TikTok data...");
-                    const data = await fg.tiktok(args[0]);
-                    const json = data.result;
-                    let caption = ` [TIKTOK DOWNLOAD]\n\n`;
-                    caption += ` Id: ${json.id}\n`;
-                    caption += ` Username: ${json.author.nickname}\n`;
-                    caption += ` Title: ${json.title}\n`;
-                    caption += ` Likes: ${json.digg_count}\n`;
-                    caption += ` Comments: ${json.comment_count}\n`;
-                    caption += ` Shares: ${json.share_count}\n`;
-                    caption += ` Plays: ${json.play_count}\n`;
-                    caption += ` Created: ${json.create_time}\n`;
-                    caption += ` Size: ${json.size}\n`;
-                    caption += ` Duration: ${json.duration}`;
+          case 'fb':
+case 'facebook':
+case 'fbdl':
+case 'ig':
+case 'instagram':
+case 'igdl': {
+    if (!args[0]) return reply(`Provide a Facebook or Instagram link!\n\nExample: ${command} <link>`);
+    try {
+        const axios = require('axios');
+        const cheerio = require('cheerio');
 
-                    if (json.images && json.images.length > 0) {
-                        for (const imgUrl of json.images) {
-                            await venom.sendMessage(from, { image: { url: imgUrl } }, { quoted: m });
-                        }
-                    } else {
-                        await venom.sendMessage(from, { video: { url: json.play }, mimetype: 'video/mp4', caption: stylishReply(caption) }, { quoted: m });
-                        setTimeout(async () => {
-                            await venom.sendMessage(from, { audio: { url: json.music }, mimetype: 'audio/mpeg' }, { quoted: m });
-                        }, 3000);
-                    }
-                } catch (err) {
-                    console.error("TikTok command error:", err);
-                    return reply(" Failed to fetch TikTok data. Make sure the link is valid.");
+        reply("Fetching media... Please wait!");
+
+        async function fetchMedia(url) {
+            try {
+                const form = new URLSearchParams();
+                form.append("q", url);
+                form.append("vt", "home");
+
+                const { data } = await axios.post('https://yt5s.io/api/ajaxSearch', form, {
+                    headers: {
+                        "Accept": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                });
+
+                if (data.status !== "ok") throw new Error("Provide a valid link.");
+                const $ = cheerio.load(data.data);
+
+                if (/facebook|fb\.watch/i.test(url)) {
+                    const thumb = $('img').attr("src");
+                    let links = [];
+                    $('table tbody tr').each((_, el) => {
+                        const quality = $(el).find('.video-quality').text().trim();
+                        const link = $(el).find('a.download-link-fb').attr("href");
+                        if (quality && link) links.push({ quality, link });
+                    });
+                    if (links.length > 0) return { platform: "facebook", type: "video", thumb, media: links[0].link };
+                    if (thumb) return { platform: "facebook", type: "image", media: thumb };
+                    throw new Error("Media is invalid.");
+                } else if (/instagram\.com\/(p|reel)/i.test(url)) {
+                    const video = $('a[title="Download Video"]').attr("href");
+                    const image = $('img').attr("src");
+                    if (video) return { platform: "instagram", type: "video", media: video };
+                    if (image) return { platform: "instagram", type: "image", media: image };
+                    throw new Error("Media invalid.");
+                } else {
+                    throw new Error("Provide a valid URL or link.");
                 }
-                break;
+            } catch (err) {
+                return { error: err.message };
             }
+        }
+
+        const res = await fetchMedia(args[0]);
+        if (res.error) return reply(`Error: ${res.error}`);
+
+        reply("I found it! Dropping it now...");
+
+        if (res.type === "video") {
+            await venom.sendMessage(from, { video: { url: res.media }, caption: `Downloaded video from ${res.platform}!` }, { quoted: m });
+        } else if (res.type === "image") {
+            await venom.sendMessage(from, { image: { url: res.media }, caption: `Downloaded photo from ${res.platform}!` }, { quoted: m });
+        }
+
+        reply("Done!");
+    } catch (error) {
+        console.error(error);
+        return reply("I did not get media. Check the link or try another video.");
+    }
+    break;
+}
 // ================= VIDEO =================
 case 'video': {
     try {
@@ -6849,21 +6888,7 @@ case 'toimage': {
   }
   break;
 }
-// ================= PRIVATE / SELF COMMAND =================
-case 'private':
-case 'self': {
-    if (!isOwner) return reply(" This command is for owner-only.");
-    venom.isPublic = false;
-    await reply(" Bot switched to *private mode*. Only the owner can use commands now.");
-    break;
-}
-// ================= PUBLIC COMMAND =================
-case 'public': {
-    if (!isOwner) return reply(" This command is for owner-only.");
-    venom.isPublic = true;
-    await reply(" Bot switched to *public mode*. Everyone can use commands now.");
-    break;
-}
+
 
 // ================= PLAY-DOC =================
 case 'playdoc': {
