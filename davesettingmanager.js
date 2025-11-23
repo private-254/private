@@ -20,6 +20,10 @@ function loadSettings() {
       autoviewstatus: true,                 // Auto-view status (default ON)
       autoreactstatus: true,                // Auto-react to status
       statusReactEmojis: ["💙","❤️","🌚","😍","✅"],
+      
+      // ADD THESE LINES - Store settings
+      maxStoreMessages: 20,                 // Maximum messages to store
+      storeWriteInterval: 10000,            // 10 seconds default
 
       welcome: false,
       goodbye: false,
