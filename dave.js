@@ -11,6 +11,7 @@ const chalk = require('chalk');
 const os = require('os');
 const { writeFile } = require('./davelib/utils');
 const { saveSettings,loadSettings } = require('./davesettingmanager');
+global.settings = loadSettings();
 const { fetchJson } = require('./davelib/fetch'); 
 
 // Redirect temp storage away from system /tmp
