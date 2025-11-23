@@ -6,7 +6,7 @@ const settingsPath = path.join(__dirname, 'davelib/settings.json');
 function loadSettings() {
   if (!fs.existsSync(settingsPath)) {
     fs.writeFileSync(settingsPath, JSON.stringify({
-      // Global bot settings (nested structure)
+      // ---------------- Nested feature toggles ----------------
       autoread: { enabled: false },
       autorecord: { enabled: false },
       autotyping: { enabled: false },
@@ -14,13 +14,11 @@ function loadSettings() {
       connectmessage: { enabled: false },
       chatbot: { enabled: false },
 
-      // Flat structure settings
+      // ---------------- Flat feature toggles ----------------
       showConnectMsg: false,
       anticall: false,
-
-      // ⭐ FEATURES YOU USE IN YOUR CODE:
-      autoviewstatus: true,                 // auto view status
-      autoreactstatus: true,                // auto react status
+      autoviewstatus: true,                 // Auto-view status (default ON)
+      autoreactstatus: true,                // Auto-react to status
       statusReactEmojis: ["💙","❤️","🌚","😍","✅"],
 
       welcome: false,
@@ -29,13 +27,13 @@ function loadSettings() {
       antilinkgc: { enabled: false },
       online: false,
 
-      // ⭐ PUBLIC MODE DEFAULT
-      mode: "public",
+      // ---------------- Public/private mode ----------------
+      mode: "public",                       // Default public
 
       onlygroup: false,
       onlypc: false,
 
-      // Group protection settings (empty objects)
+      // ---------------- Group protection ----------------
       antilink: {},
       antitag: {},
       antibadword: {},
@@ -43,7 +41,7 @@ function loadSettings() {
       antidemote: {},
       antibot: {},
 
-      // Auto-react settings
+      // ---------------- Auto-react settings ----------------
       areact: {
         enabled: false,
         chats: {},
@@ -51,10 +49,10 @@ function loadSettings() {
         mode: "random"
       },
 
-      // Warning system
+      // ---------------- Warning system ----------------
       warnings: { enabled: true, maxWarnings: 3, chats: {} },
 
-      // Bot info for menu
+      // ---------------- Bot info ----------------
       botName: "Dave AI",
       ownername: "Dev-dave",
       owner: ["254104260236"]
