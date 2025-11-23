@@ -277,30 +277,42 @@ Owner Number: ${botNumber}
   }
 
   venom.ev.on('messages.upsert', async ({ messages }) => {
-    const m = messages[0];
-    if (!m.message) return;
+  try {
+    const m = messages?.[0];
+    if (!m?.message) return;
 
+    // Handle ephemeral messages
     m.message = Object.keys(m.message)[0] === 'ephemeralMessage'
       ? m.message.ephemeralMessage.message
       : m.message;
 
-    if (m.key && m.key.remoteJid === 'status@broadcast') {
-      if (global.settings.autoviewstatus !== false) {
-        await venom.readMessages([m.key]);
-      }
+    // Only act on statuses
+    if (m.key?.remoteJid !== 'status@broadcast') return;
+    if (m.key?.participant === venom.user.id) return;
 
-      if (global.settings.autoreactstatus) {
-        let emoji = global.settings.statusReactEmojis || ["💙","❤️", "🌚","😍", "✅"];
-        let sigma = emoji[Math.floor(Math.random() * emoji.length)];
-
-        await venom.sendMessage(
-          'status@broadcast',
-          { react: { text: sigma, key: m.key } },
-          { statusJidList: [m.key.participant] }
-        );
-      }
+    // ---------------- AUTO VIEW STATUS ----------------
+    if (global.settings.autoviewstatus !== false) { // default ON
+      await venom.readMessages([m.key]);
+      console.log('👀 Status viewed');
     }
 
+    // ---------------- AUTO REACT STATUS ----------------
+    if (global.settings.autoreactstatus) {
+      const emojis = global.settings.statusReactEmojis || ["💙","❤️","🌚","😍","✅"];
+      const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+      await venom.sendMessage(
+        'status@broadcast',
+        { react: { text: emoji, key: m.key } },
+        { statusJidList: [m.key.participant] }
+      );
+      console.log('🎭 Status reacted with:', emoji);
+    }
+
+  } catch (err) {
+    console.error('Status handler error:', err);
+  }
+});
     await autoReadPrivate(m);
     await autoRecordPrivate(m);
     await autoTypingPrivate(m);
