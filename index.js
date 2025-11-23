@@ -577,7 +577,7 @@ async function startvenom() {
         for (const user of participants) {
           if (user !== botNumber) {
             await venom.sendMessage(chatId, {
-              text: `Promotion Blocked! User: @${user.split('@')[0]} Mode: ${groupSettings.mode.toUpperCase()}`,
+              text: `🚫 *Promotion Blocked!*\nUser: @${user.split('@')[0]}\nMode: ${groupSettings.mode.toUpperCase()}`,
               mentions: [user],
             });
 
@@ -597,7 +597,7 @@ async function startvenom() {
         for (const user of participants) {
           if (user !== botNumber) {
             await venom.sendMessage(chatId, {
-              text: `Demotion Blocked! User: @${user.split('@')[0]} Mode: ${groupSettings.mode.toUpperCase()}`,
+              text: `🚫 *Demotion Blocked!*\nUser: @${user.split('@')[0]}\nMode: ${groupSettings.mode.toUpperCase()}`,
               mentions: [user],
             });
 
@@ -623,7 +623,7 @@ async function tylor() {
     await fs.promises.mkdir(sessionDir, { recursive: true });
 
     if (fs.existsSync(credsPath)) {
-      console.log(chalk.yellowBright("Existing session found. Starting bot without pairing..."));
+      console.log(chalk.yellowBright("✅ Existing session found. Starting bot without pairing..."));
       await startvenom();
       return;
     }
@@ -631,19 +631,19 @@ async function tylor() {
     if (config.SESSION_ID && config.SESSION_ID.includes("DAVE-AI:~")) {
       const ok = await saveSessionFromConfig();
       if (ok) {
-        console.log(chalk.greenBright("Session ID loaded and saved successfully. Starting bot..."));
+        console.log(chalk.greenBright("✅ Session ID loaded and saved successfully. Starting bot..."));
         await startvenom();
         return;
       } else {
-        console.log(chalk.redBright("SESSION_ID found but failed to save it. Falling back to pairing..."));
+        console.log(chalk.redBright("⚠️ SESSION_ID found but failed to save it. Falling back to pairing..."));
       }
     }
 
-    console.log(chalk.redBright("No valid session found! You'll need to pair a new number."));
+    console.log(chalk.redBright("⚠️ No valid session found! You'll need to pair a new number."));
     await startvenom();
 
   } catch (error) {
-    console.error(chalk.redBright("Error initializing session:"), error);
+    console.error(chalk.redBright("❌ Error initializing session:"), error);
   }
 }
 
