@@ -259,33 +259,35 @@ venom.ev.on('connection.update', async (update) => {
       console.log(chalk.yellow('⚠️ Antidelete initialization failed:', antiDeleteError.message));
       console.log(chalk.yellow('ℹ️ Bot will continue without antidelete feature'));
     }
-
-    venom.isPublic = true;
+global.settings.mode = "public";  // default mode is public
   }
 });
 // ================== AntiCall Handler ==================
 const antiCallNotified = new Set();
+
 venom.ev.on('call', async (calls) => {
   try {
-    if (!global.settings.anticall) return;
+    if (!global.settings?.anticall || !global.owner) return;
 
     for (const call of calls) {
       const callerId = call.from;
       if (!callerId) continue;
 
       const callerNumber = callerId.split('@')[0];
-      if (global.owner?.includes(callerNumber)) continue;
+      if (global.owner.includes(callerNumber)) continue;
 
       if (call.status === 'offer') {
         console.log(`Rejecting ${call.isVideo ? 'video' : 'voice'} call from ${callerNumber}`);
 
         if (call.id) {
-          await venom.rejectCall(call.id, callerId).catch(err => 
-            console.error('Reject error:', err.message));
+          await venom.rejectCall(call.id, callerId).catch(err =>
+            console.error('Reject error:', err.message)
+          );
         }
 
         if (!antiCallNotified.has(callerId)) {
           antiCallNotified.add(callerId);
+
           await venom.sendMessage(callerId, {
             text: 'Calls are not allowed. Your call has been rejected and you have been blocked. Send a text message instead.'
           }).catch(() => {});
