@@ -25,7 +25,14 @@ global.userCooldowns = {};
 
 const store = require('./davelib/lightweight_store')
 store.readFromFile()
-setInterval(() => store.writeToFile(), (global.settings && global.settings.storeWriteInterval) || 10000)
+
+// Set max messages from settings
+if (global.settings && global.settings.maxStoreMessages) {
+    store.setMaxMessages(global.settings.maxStoreMessages)
+}
+
+// Set write interval from settings
+setInterval(() => store.writeToFile(), (global.settings && global.settings.storeWriteInterval) ? global.settings.storeWriteInterval : 10000)
 
 setInterval(() => {
     if (global.gc) {
