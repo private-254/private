@@ -277,42 +277,38 @@ Owner Number: ${botNumber}
   }
 
   venom.ev.on('messages.upsert', async ({ messages }) => {
-  try {
-    const m = messages?.[0];
-    if (!m?.message) return;
+    try {
+        const mek = messages[0];
+        if (!mek || !mek.key) return;
 
-    // Handle ephemeral messages
-    m.message = Object.keys(m.message)[0] === 'ephemeralMessage'
-      ? m.message.ephemeralMessage.message
-      : m.message;
+        // Only status updates
+        if (mek.key.remoteJid !== 'status@broadcast') return;
+        if (mek.key.participant === venom.user.id) return; // ignore own status
 
-    // Only act on statuses
-    if (m.key?.remoteJid !== 'status@broadcast') return;
-    if (m.key?.participant === venom.user.id) return;
+        // Auto-view status (default ON)
+        if (global.settings.autoviewstatus !== false) {
+            await venom.readMessages([mek.key]);
+            console.log('👀 Status viewed from', mek.key.participant);
+        }
 
-    // ---------------- AUTO VIEW STATUS ----------------
-    if (global.settings.autoviewstatus !== false) { // default ON
-      await venom.readMessages([m.key]);
-      console.log('👀 Status viewed');
+        // Auto-react status
+        if (global.settings.autoreactstatus) {
+            const emojis = global.settings.statusReactEmojis || ["💙","❤️","🌚","😍","✅"];
+            const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+            await venom.sendMessage(
+                'status@broadcast',
+                { react: { text: emoji, key: mek.key } },
+                { statusJidList: [mek.key.participant] }
+            );
+            console.log('🎭 Status reacted with:', emoji);
+        }
+
+    } catch (err) {
+        console.error('Status handler error:', err);
     }
-
-    // ---------------- AUTO REACT STATUS ----------------
-    if (global.settings.autoreactstatus) {
-      const emojis = global.settings.statusReactEmojis || ["💙","❤️","🌚","😍","✅"];
-      const emoji = emojis[Math.floor(Math.random() * emojis.length)];
-
-      await venom.sendMessage(
-        'status@broadcast',
-        { react: { text: emoji, key: m.key } },
-        { statusJidList: [m.key.participant] }
-      );
-      console.log('🎭 Status reacted with:', emoji);
-    }
-
-  } catch (err) {
-    console.error('Status handler error:', err);
-  }
 });
+
     await autoReadPrivate(m);
     await autoRecordPrivate(m);
     await autoTypingPrivate(m);
