@@ -340,6 +340,95 @@ case 'ping': {
 }
 
 
+// ================= PLAY-DOC =================
+case 'playdoc': {
+    try {
+        const tempDir = path.join(__dirname, "temp");
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+        if (!args.length) return reply(` Provide a song name!\nExample: ${command} Not Like Us`);
+
+        const query = args.join(" ");
+        if (query.length > 100) return reply(` Song name too long! Max 100 chars.`);
+
+        await reply(" Searching for the track... ");
+
+        const searchResult = (await yts(`${query} official`)).videos[0];
+        if (!searchResult) return reply(" Couldn't find that song. Try another one!");
+
+        const video = searchResult;
+        const apiUrl = `https://api.privatezia.biz.id/api/downloader/ytmp3?url=${encodeURIComponent(video.url)}`;
+        const response = await axios.get(apiUrl);
+        const apiData = response.data;
+
+        if (!apiData.status || !apiData.result?.downloadUrl)
+            throw new Error("API failed to fetch track!");
+
+        const timestamp = Date.now();
+        const fileName = `audio_${timestamp}.mp3`;
+        const filePath = path.join(tempDir, fileName);
+
+        const audioResponse = await axios({
+            method: "get",
+            url: apiData.result.downloadUrl,
+            responseType: "stream",
+            timeout: 600000
+        });
+
+        const writer = fs.createWriteStream(filePath);
+        audioResponse.data.pipe(writer);
+
+        await new Promise((resolve, reject) => {
+            writer.on("finish", resolve);
+            writer.on("error", reject);
+        });
+
+        if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0)
+            throw new Error("Download failed or empty file!");
+
+        await reply(` Downloaded *${apiData.result.title || video.title}* \nSending document...`);
+
+        await venom.sendMessage(
+            from,
+            {
+                document: { url: filePath },
+                mimetype: "audio/mpeg",
+                fileName: `${(apiData.result.title || video.title).substring(0, 100)}.mp3`
+            },
+            { quoted: m }
+        );
+
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    } catch (error) {
+        console.error("Play-DOC error:", error);
+        return reply(` Error: ${error.message}`);
+    }
+}
+break;
+
+// ================= TAGALL =================
+case 'tagall':
+case 'everyone': {
+    if (!isGroup) {
+        return reply(' This command can only be used in groups!');
+    }
+
+    const groupMeta = await venom.groupMetadata(from);
+    const participants = groupMeta.participants.map(p => p.id);
+
+    let messageText = ` venom just tagged everyone in the group lol!\n\n`;
+    participants.forEach((p) => {
+        messageText += `• @${p.split('@')[0]}\n`;
+    });
+
+    return venom.sendMessage(
+        from,
+        { text: messageText, mentions: participants },
+        { quoted: m }
+    );
+}
+break;
 case 'private':
 case 'self': {
     if (!isOwner) return reply("❌ This command is for owner-only.");
