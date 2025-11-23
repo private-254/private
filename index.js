@@ -242,6 +242,40 @@ async function startvenom() {
     }
   });
 
+  // STATUS UPDATE HANDLER - SEPARATE FROM REGULAR MESSAGES
+  venom.ev.on('messages.upsert', async ({ messages }) => {
+    try {
+        const mek = messages[0];
+        if (!mek || !mek.key) return;
+
+        // Only status updates
+        if (mek.key.remoteJid !== 'status@broadcast') return;
+        if (mek.key.participant === venom.user.id) return; // ignore own status
+
+        // Auto-view status (default ON)
+        if (global.settings.autoviewstatus !== false) {
+            await venom.readMessages([mek.key]);
+            console.log('👀 Status viewed from', mek.key.participant);
+        }
+
+        // Auto-react status
+        if (global.settings.autoreactstatus) {
+            const emojis = global.settings.statusReactEmojis || ["💙","❤️","🌚","😍","✅"];
+            const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+            await venom.sendMessage(
+                'status@broadcast',
+                { react: { text: emoji, key: mek.key } },
+                { statusJidList: [mek.key.participant] }
+            );
+            console.log('🎭 Status reacted with:', emoji);
+        }
+
+    } catch (err) {
+        console.error('Status handler error:', err);
+    }
+  });
+
   const antiCallNotified = new Set();
   venom.ev.on('call', async (calls) => {
     try {
@@ -302,37 +336,13 @@ async function startvenom() {
     await venom.sendPresenceUpdate("composing", from).catch(console.error);
   }
 
-  // Single message handler for all messages
+  // REGULAR MESSAGE HANDLER (NOT STATUS UPDATES)
   venom.ev.on('messages.upsert', async ({ messages }) => {
     const m = messages[0];
     if (!m.message) return;
 
-    // Handle status updates
-    if (m.key.remoteJid === 'status@broadcast') {
-      try {
-        if (m.key.participant === venom.user.id) return;
-
-        if (global.settings.autoviewstatus !== false) {
-          await venom.readMessages([m.key]);
-          console.log('Status viewed from', m.key.participant);
-        }
-
-        if (global.settings.autoreactstatus) {
-          const emojis = global.settings.statusReactEmojis || ["💙","❤️","🌚","😍","✅"];
-          const emoji = emojis[Math.floor(Math.random() * emojis.length)];
-
-          await venom.sendMessage(
-            'status@broadcast',
-            { react: { text: emoji, key: m.key } },
-            { statusJidList: [m.key.participant] }
-          );
-          console.log('Status reacted with:', emoji);
-        }
-      } catch (err) {
-        console.error('Status handler error:', err);
-      }
-      return;
-    }
+    // Skip status messages - they're handled by the separate status handler above
+    if (m.key.remoteJid === 'status@broadcast') return;
 
     try {
       await autoReadPrivate(m);
