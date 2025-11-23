@@ -160,11 +160,15 @@ async function startvenom() {
         if (global.settings && global.settings.showConnectMsg !== false) {
           const ownerJid = `${botNumber}@s.whatsapp.net`;
           const message = `
-Venom-XMD
-Bot connected successfully
-Developer: Dave
-Version: 2.0.0
-Owner Number: ${botNumber}
+╔═══════════════════════
+║      🚀 VENOM-XMD
+╠═══════════════════════
+║ ✅ Bot connected successfully
+║ 👨‍💻 Developer: Dave
+║ 📦 Version: 2.0.0
+║ 📱 Owner Number: ${botNumber}
+║ ⏰ Connected at: ${new Date().toLocaleString()}
+╚═══════════════════════
 `;
           await venom.sendMessage(ownerJid, { text: message });
           console.log("Welcome message sent.");
@@ -378,6 +382,7 @@ Owner Number: ${botNumber}
         }
       }
 
+      // Pass to command handler
       const from = m.key.remoteJid;
       const sender = m.key.participant || from;
       const isGroup = from.endsWith('@g.us');
@@ -421,6 +426,7 @@ Owner Number: ${botNumber}
       };
 
       await handleCommand(venom, wrappedMsg, command, args, isGroup, isAdmin, groupAdmins, groupMeta, jidDecode, config);
+
     } catch (error) {
       console.error('Error in message handler:', error);
     }
@@ -446,7 +452,13 @@ Owner Number: ${botNumber}
   venom.ev.on('group-participants.update', async (update) => {
     try {
       const { id, participants, action } = update;
+      const chatId = id;
+      const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
 
+      // Load Settings
+      const settings = loadSettings();
+
+      // Welcome messages with frame
       if (action === 'add') {
         const welcomePath = './davelib/welcome.json';
         let welcomeData = {};
@@ -463,15 +475,28 @@ Owner Number: ${botNumber}
 
             const name = (await venom.onWhatsApp(user))[0]?.notify || user.split('@')[0];
 
+            const welcomeMessage = `
+╔═══════════════════════
+║      🎉 WELCOME!
+╠═══════════════════════
+║ 👤 Name: ${name}
+║ 📱 User: @${user.split('@')[0]}
+║ 👥 Group: ${groupName}
+║ 🕒 Joined: ${new Date().toLocaleString()}
+║ 🎯 Total Members: ${groupMetadata.participants.length}
+╚═══════════════════════
+            `.trim();
+
             await venom.sendMessage(id, {
               image: { url: ppUrl },
-              caption: `Welcome @${user.split('@')[0]}! Glad to have you in ${groupName}!`,
+              caption: welcomeMessage,
               contextInfo: { mentionedJid: [user] }
             });
           }
         }
       }
 
+      // Goodbye messages with frame
       if (action === 'remove') {
         const goodbyePath = './davelib/goodbye.json';
         let goodbyeData = {};
@@ -488,26 +513,35 @@ Owner Number: ${botNumber}
 
             const name = (await venom.onWhatsApp(user))[0]?.notify || user.split('@')[0];
 
+            const goodbyeMessage = `
+╔═══════════════════════
+║      👋 GOODBYE!
+╠═══════════════════════
+║ 👤 Name: ${name}
+║ 📱 User: @${user.split('@')[0]}
+║ 👥 Group: ${groupName}
+║ 🕒 Left: ${new Date().toLocaleString()}
+║ 🎯 Members Left: ${groupMetadata.participants.length}
+╚═══════════════════════
+            `.trim();
+
             await venom.sendMessage(id, {
               image: { url: ppUrl },
-              caption: `${name} (@${user.split('@')[0]}) has left ${groupName}.`,
+              caption: goodbyeMessage,
               contextInfo: { mentionedJid: [user] }
             });
           }
         }
       }
 
-      const chatId = id;
-      const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
-      const settings = loadSettings();
-
+      // 🧩 Handle AntiPromote
       if (action === 'promote' && settings.antipromote?.[chatId]?.enabled) {
         const groupSettings = settings.antipromote[chatId];
 
         for (const user of participants) {
           if (user !== botNumber) {
             await venom.sendMessage(chatId, {
-              text: `Promotion Blocked! User: @${user.split('@')[0]} Mode: ${groupSettings.mode.toUpperCase()}`,
+              text: `🚫 *Promotion Blocked!*\nUser: @${user.split('@')[0]}\nMode: ${groupSettings.mode.toUpperCase()}`,
               mentions: [user],
             });
 
@@ -520,13 +554,14 @@ Owner Number: ${botNumber}
         }
       }
 
+      // 🧩 Handle AntiDemote
       if (action === 'demote' && settings.antidemote?.[chatId]?.enabled) {
         const groupSettings = settings.antidemote[chatId];
 
         for (const user of participants) {
           if (user !== botNumber) {
             await venom.sendMessage(chatId, {
-              text: `Demotion Blocked! User: @${user.split('@')[0]} Mode: ${groupSettings.mode.toUpperCase()}`,
+              text: `🚫 *Demotion Blocked!*\nUser: @${user.split('@')[0]}\nMode: ${groupSettings.mode.toUpperCase()}`,
               mentions: [user],
             });
 
@@ -540,19 +575,20 @@ Owner Number: ${botNumber}
       }
 
     } catch (err) {
-      console.error('Group participants update error:', err);
+      console.error("AntiPromote/AntiDemote error:", err);
     }
   });
 
   return venom;
 }
 
+// ================== Startup orchestration ==================
 async function tylor() {
   try {
     await fs.promises.mkdir(sessionDir, { recursive: true });
 
     if (fs.existsSync(credsPath)) {
-      console.log(chalk.yellowBright("Existing session found. Starting bot without pairing..."));
+      console.log(chalk.yellowBright("✅ Existing session found. Starting bot without pairing..."));
       await startvenom();
       return;
     }
@@ -560,19 +596,19 @@ async function tylor() {
     if (config.SESSION_ID && config.SESSION_ID.includes("DAVE-AI:~")) {
       const ok = await saveSessionFromConfig();
       if (ok) {
-        console.log(chalk.greenBright("Session ID loaded and saved successfully. Starting bot..."));
+        console.log(chalk.greenBright("✅ Session ID loaded and saved successfully. Starting bot..."));
         await startvenom();
         return;
       } else {
-        console.log(chalk.redBright("SESSION_ID found but failed to save it. Falling back to pairing..."));
+        console.log(chalk.redBright("⚠️ SESSION_ID found but failed to save it. Falling back to pairing..."));
       }
     }
 
-    console.log(chalk.redBright("No valid session found! You'll need to pair a new number."));
+    console.log(chalk.redBright("⚠️ No valid session found! You'll need to pair a new number."));
     await startvenom();
 
   } catch (error) {
-    console.error(chalk.redBright("Error initializing session:"), error);
+    console.error(chalk.redBright("❌ Error initializing session:"), error);
   }
 }
 
