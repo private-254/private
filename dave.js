@@ -584,6 +584,74 @@ case 'igdl2': {
   }
   break;
 }
+
+case 'play': {
+    try {
+        const tempDir = path.join(__dirname, "temp");
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+        if (!args.length) return reply(`Provide a song name!\nExample: ${command} Not Like Us`);
+
+        const query = args.join(" ");
+        if (query.length > 100) return reply(`Song name too long! Max 100 chars.`);
+
+        await reply("Searching for the track...");
+
+        const searchResult = await (await yts(`${query} official`)).videos[0];
+        if (!searchResult) return reply("Couldn't find that song. Try another one!");
+
+        const video = searchResult;
+        const apiUrl = `https://api.privatezia.biz.id/api/downloader/ytmp3?url=${encodeURIComponent(video.url)}`;
+        const response = await axios.get(apiUrl);
+        const apiData = response.data;
+
+        if (!apiData.status || !apiData.result || !apiData.result.downloadUrl)
+            throw new Error("API failed to fetch track!");
+
+        const timestamp = Date.now();
+        const fileName = `audio_${timestamp}.mp3`;
+        const filePath = path.join(tempDir, fileName);
+
+        // Download MP3
+        const audioResponse = await axios({
+            method: "get",
+            url: apiData.result.downloadUrl,
+            responseType: "stream",
+            timeout: 600000
+        });
+
+        const writer = fs.createWriteStream(filePath);
+        audioResponse.data.pipe(writer);
+
+        await new Promise((resolve, reject) => {
+            writer.on("finish", resolve);
+            writer.on("error", reject);
+        });
+
+        if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0)
+            throw new Error("Download failed or empty file!");
+
+        await reply(`Playing *${apiData.result.title || video.title}* ...`);
+
+        await venom.sendMessage(
+            from,
+            {
+                audio: { url: filePath },
+                mimetype: "audio/mpeg",
+                fileName: `${(apiData.result.title || video.title).substring(0, 100)}.mp3`
+            },
+            { quoted: m }
+        );
+
+        // Cleanup
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    } catch (error) {
+        console.error("Play command error:", error);
+        return reply(`Error: ${error.message}`);
+    }
+    break;
+}
 // ================= SONG =================
 case 'song': {
   try {
@@ -862,6 +930,7 @@ case 'approve': {
 }
 
 case 'setbotname':
+case 'botname':
 case 'setname':
 case 'changebotname': {
   if (!isOwner) return reply("⛔ Only the bot owner can use this command!");
@@ -923,7 +992,7 @@ case 'viewstatus':
 case 'statusview': {
     try {
         // Only bot owner can use this
-        if (!isOwner) return reply("❌ Only the bot owner can toggle auto-view status!");
+        if (!isOwner) return reply("❌ Only the bot owner can usw this command!");
 
         const option = args[0]?.toLowerCase();
 
@@ -964,7 +1033,7 @@ case 'autoreadmessages':
 case 'readmessages': {
     try {
         // Only bot owner can use this
-        if (!isOwner) return reply("❌ Only the bot owner can toggle auto-read messages!");
+        if (!isOwner) return reply("❌ Only the bot owner can use this command !");
 
         const option = args[0]?.toLowerCase();
 
@@ -1436,8 +1505,6 @@ case 'help': {
   const menuText = `
 ┏━━━━━━━━━━━━━━━━━━━
 ┃ √ ${botName}
-┃ ✦ BotType  : *plugins+case*
-┃ ✦ Version  : *1.0.0*
 ┃ ✦ Uptime   : *${uptimeFormatted}*
 ┃ ✦ RAM      : *${ramUsage} MB*  
 ┃ ✦ Users    : *${totalUsers}*
@@ -1448,8 +1515,7 @@ case 'help': {
 
 *${botName.toUpperCase()} CONTROL*
 ┣➤ ping
-┣➤ public
-┣➤ allmenu 
+┣➤ public 
 ┣➤ dave(menu)
 ┣➤ private
 ┣➤ autoread
@@ -1801,25 +1867,27 @@ case 'help': {
 case 'setprefix': {
     try {
         const fs = require('fs');
-        const prefixSettingsPath = './davelib/prefixSettings.json';
-        const from = m.key.remoteJid;
-        const sender = m.key.participant || from;
+        const prefixSettingsPath = './davelib/prefixSettings.json'; // CHANGED TO davelib
 
         if (!args[0]) {
-            return reply(` Please provide a prefix!\nExample: setprefix .\nOr use 'none' to remove the prefix`);
+            return reply(`Provide a prefix!\nExample:\n• setprefix .\n• setprefix !\n• setprefix none`);
         }
 
         let newPrefix = args[0].toLowerCase();
-        if (newPrefix === 'none') newPrefix = '';
+        if (newPrefix === "none") newPrefix = "";
 
-        // Save the new prefix
-        const prefixSettings = { prefix: newPrefix };
+        // MUST MATCH WHAT index.js LOADS
+        const prefixSettings = {
+            prefix: newPrefix,
+            defaultPrefix: newPrefix === "" ? "" : newPrefix
+        };
+
         fs.writeFileSync(prefixSettingsPath, JSON.stringify(prefixSettings, null, 2));
 
-        reply(` Prefix successfully set to: ${newPrefix === '' ? 'none (no prefix required)' : newPrefix}`);
+        reply(`Prefix updated to: *${newPrefix === "" ? "none (no prefix)" : newPrefix}*`);
     } catch (err) {
         console.error(err);
-        reply(' Failed to set prefix!');
+        reply("❌ Failed to set prefix!");
     }
     break;
 }
@@ -4622,27 +4690,7 @@ case 'setdesc': {
     }
     break;
 }
-case 'setnamabot':
-case 'setbotname': {
-    try {
-        if (!isOwner) return reply(" 🚫 This command is for owner-only.");
-        if (!text) return reply(` 📝 Please provide a name\nExample: .setnamabot 𝘿𝙖𝙫𝙚𝘼𝙄`);
 
-        // Update WhatsApp profile name
-        await venom.updateProfileName(text);
-        
-        // Save bot name to global settings
-        global.settings.botName = text;
-        saveSettings(global.settings);
-
-        reply(` ✅ Successfully changed the bot's profile name to *${text}*\n\n📝 Bot name saved to settings for menu display`);
-        
-    } catch (err) {
-        console.error("SetBotName Command Error:", err);
-        reply(" Failed to change bot name.");
-    }
-    break;
-}
 case 'save': {
     try {
         const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
@@ -5115,6 +5163,7 @@ case 'gitstalk': {
   break;
 }
  // =================CHECK SETTINGS=================
+case 'getsettings':
 case 'checksettings': {
   try {
     const fs = require('fs');
@@ -5250,86 +5299,8 @@ Last updated: ${new Date().toLocaleString()}
 }
 
             // ================= IG/FB DL =================
-            case 'fb':
-            case 'facebook':
-            case 'fbdl':
-            case 'ig':
-            case 'instagram':
-            case 'igdl': {
-                if (!args[0]) return reply(` Provide a Facebook or Instagram link!\n\nExample: ${command} <link>`);
-                try {
-                    const axios = require('axios');
-                    const cheerio = require('cheerio');
-
-                    const progressMsg = await venom.sendMessage(from, { text: stylishReply(" Fetching media... Please wait!") }, { quoted: m });
-
-                    async function fetchMedia(url) {
-                        try {
-                            const form = new URLSearchParams();
-                            form.append("q", url);
-                            form.append("vt", "home");
-
-                            const { data } = await axios.post('https://yt5s.io/api/ajaxSearch', form, {
-                                headers: {
-                                    "Accept": "application/json",
-                                    "X-Requested-With": "XMLHttpRequest",
-                                    "Content-Type": "application/x-www-form-urlencoded",
-                                },
-                            });
-
-                            if (data.status !== "ok") throw new Error("Provide a valid link.");
-                            const $ = cheerio.load(data.data);
-
-                            if (/^(https?:\/\/)?(www\.)?(facebook\.com|fb\.watch)\/.+/i.test(url)) {
-                                const thumb = $('img').attr("src");
-                                let links = [];
-                                $('table tbody tr').each((_, el) => {
-                                    const quality = $(el).find('.video-quality').text().trim();
-                                    const link = $(el).find('a.download-link-fb').attr("href");
-                                    if (quality && link) links.push({ quality, link });
-                                });
-                                if (links.length > 0) return { platform: "facebook", type: "video", thumb, media: links[0].link };
-                                if (thumb) return { platform: "facebook", type: "image", media: thumb };
-                                throw new Error("Media is invalid.");
-                            } else if (/^(https?:\/\/)?(www\.)?(instagram\.com\/(p|reel)\/).+/i.test(url)) {
-                                const video = $('a[title="Download Video"]').attr("href");
-                                const image = $('img').attr("src");
-                                if (video) return { platform: "instagram", type: "video", media: video };
-                                if (image) return { platform: "instagram", type: "image", media: image };
-                                throw new Error("Media invalid.");
-                            } else {
-                                throw new Error("Provide a valid URL or link.");
-                            }
-                        } catch (err) {
-                            return { error: err.message };
-                        }
-                    }
-
-                    const res = await fetchMedia(args[0]);
-                    if (res.error) {
-                        await venom.sendMessage(from, { react: { text: "", key: m.key } });
-                        return reply(` Error: ${res.error}`);
-                    }
-
-                    await venom.sendMessage(from, { text: stylishReply(" I found it hold! dropping it famn...") }, { quoted: m });
-
-                    if (res.type === "video") {
-                        await venom.sendMessage(from, { video: { url: res.media }, caption: stylishReply(` Downloaded video from ${res.platform}!`) }, { quoted: m });
-                    } else if (res.type === "image") {
-                        await venom.sendMessage(from, { image: { url: res.media }, caption: stylishReply(` Downloaded photo from ${res.platform}!`) }, { quoted: m });
-                    }
-
-                    await venom.sendMessage(from, { text: stylishReply(" Done!") }, { quoted: m });
-
-                } catch (error) {
-                    console.error(error);
-                    await venom.sendMessage(from, { react: { text: "", key: m.key } });
-                    return reply(" I did not get media check apis or try another video and am not sorry blame developer.");
-                }
-                break;
-            }
-
-          case 'fb':
+            
+case 'fb':
 case 'facebook':
 case 'fbdl':
 case 'ig':
@@ -5991,55 +5962,7 @@ async function getBuffer(url) {
     }
     break;
 }
-            // ================= PLAY =================
-            case 'play': {
-                try {
-                    const tempDir = path.join(__dirname, "temp");
-                    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-
-                    if (!args.length) return reply(` Provide a song name!\nExample: ${command} Not Like Us`);
-
-                    const query = args.join(" ");
-                    if (query.length > 100) return reply(` Song name too long! Max 100 chars.`);
-
-                    await reply(" Searching for the track... ");
-
-                    const searchResult = await (await yts(`${query} official`)).videos[0];
-                    if (!searchResult) return reply(" Couldn't find that song. Try another one!");
-
-                    const video = searchResult;
-                    const apiUrl = `https://api.privatezia.biz.id/api/downloader/ytmp3?url=${encodeURIComponent(video.url)}`;
-                    const response = await axios.get(apiUrl);
-                    const apiData = response.data;
-
-                    if (!apiData.status || !apiData.result || !apiData.result.downloadUrl) throw new Error("API failed to fetch track!");
-
-                    const timestamp = Date.now();
-                    const fileName = `audio_${timestamp}.mp3`;
-                    const filePath = path.join(tempDir, fileName);
-
-                    // Download MP3
-                    const audioResponse = await axios({ method: "get", url: apiData.result.downloadUrl, responseType: "stream", timeout: 600000 });
-                    const writer = fs.createWriteStream(filePath);
-                    audioResponse.data.pipe(writer);
-                    await new Promise((resolve, reject) => { writer.on("finish", resolve); writer.on("error", reject); });
-
-                    if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0) throw new Error("Download failed or empty file!");
-
-                    await venom.sendMessage(from, { text: stylishReply(` Playing *${apiData.result.title || video.title}* `) }, { quoted: m });
-                    await venom.sendMessage(from, { audio: { url: filePath }, mimetype: "audio/mpeg", fileName: `${(apiData.result.title || video.title).substring(0, 100)}.mp3` }, { quoted: m });
-
-                    // Cleanup
-                    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
-                } catch (error) {
-                    console.error("Play command error:", error);
-                    return reply(` Error: ${error.message}`);
-                }
-                break;
-            }
-// ================= GET CASE  =================
-
+            
 case 'web2zip': {
   const axios = require("axios");
   const fs = require("fs");
@@ -6891,77 +6814,6 @@ case 'toimage': {
 }
 
 
-// ================= PLAY-DOC =================
-case 'playdoc': {
-    try {
-        const tempDir = path.join(__dirname, "temp");
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-
-        if (!args.length) return reply(` Provide a song name!\nExample: ${command} Not Like Us`);
-
-        const query = args.join(" ");
-        if (query.length > 100) return reply(` Song name too long! Max 100 chars.`);
-
-        await reply(" Searching for the track... ");
-
-        const searchResult = await (await yts(`${query} official`)).videos[0];
-        if (!searchResult) return reply(" Couldn't find that song. Try another one!");
-
-        const video = searchResult;
-        const apiUrl = `https://api.privatezia.biz.id/api/downloader/ytmp3?url=${encodeURIComponent(video.url)}`;
-        const response = await axios.get(apiUrl);
-        const apiData = response.data;
-
-        if (!apiData.status || !apiData.result || !apiData.result.downloadUrl) throw new Error("API failed to fetch track!");
-
-        const timestamp = Date.now();
-        const fileName = `audio_${timestamp}.mp3`;
-        const filePath = path.join(tempDir, fileName);
-
-        // Download MP3
-        const audioResponse = await axios({
-            method: "get",
-            url: apiData.result.downloadUrl,
-            responseType: "stream",
-            timeout: 600000
-        });
-
-        const writer = fs.createWriteStream(filePath);
-        audioResponse.data.pipe(writer);
-        await new Promise((resolve, reject) => {
-            writer.on("finish", resolve);
-            writer.on("error", reject);
-        });
-
-        if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0)
-            throw new Error("Download failed or empty file!");
-
-        await venom.sendMessage(
-            from,
-            { text: stylishReply(` Downloaded *${apiData.result.title || video.title}* `) },
-            { quoted: m }
-        );
-
-        // Send as document
-        await venom.sendMessage(
-            from,
-            {
-                document: { url: filePath },
-                mimetype: "audio/mpeg",
-                fileName: `${(apiData.result.title || video.title).substring(0, 100)}.mp3`
-            },
-            { quoted: m }
-        );
-
-        // Cleanup
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
-    } catch (error) {
-        console.error("Play command error:", error);
-        return reply(` Error: ${error.message}`);
-    }
-    break;
-}
 // ================= ANTILINK =================
 case 'antilink': {
   try {
@@ -7483,26 +7335,7 @@ case 'hidetag': {
     }
     break;
 }
-// ================= TAGALL =================
-case 'tagall':
-case 'everyone':
-    if (!isGroup) {
-        return await venom.sendMessage(from, { text: ' This command can only be used in groups!' });
-    }
 
-    const groupMeta = await venom.groupMetadata(from);
-    const participants = groupMeta.participants.map(p => p.id);
-
-    let messageText = ` venom just tagged everyone in the group lol!\n\n`;
-    participants.forEach((p, i) => {
-        messageText += `• @${p.split('@')[0]}\n`;
-    });
-
-    await venom.sendMessage(from, {
-        text: messageText,
-        mentions: participants
-    });
-break;
 
 // ================= KICK =================
 case 'kick':
