@@ -516,6 +516,7 @@ case 'play2': {
     reply(`Error: ${err.message}`);
   }
   break;
+}
 
 case 'igdl2': {
   try {
