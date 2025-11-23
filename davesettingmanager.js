@@ -17,21 +17,25 @@ function loadSettings() {
       // Flat structure settings
       showConnectMsg: false,
       anticall: false,
-      autoviewstatus: true,
-      autoreactstatus: true,
+
+      // ⭐ FEATURES YOU USE IN YOUR CODE:
+      autoviewstatus: true,                 // auto view status
+      autoreactstatus: true,                // auto react status
+      statusReactEmojis: ["💙","❤️","🌚","😍","✅"],
+
       welcome: false,
       goodbye: false,
       autobio: true,
       antilinkgc: { enabled: false },
       online: false,
 
-      // ⭐ SIMPLE PUBLIC/PRIVATE MODE
-      mode: "public",   // <== can be "public" or "private"
+      // ⭐ PUBLIC MODE DEFAULT
+      mode: "public",
 
       onlygroup: false,
       onlypc: false,
 
-      // Group protection settings
+      // Group protection settings (empty objects)
       antilink: {},
       antitag: {},
       antibadword: {},
@@ -39,7 +43,7 @@ function loadSettings() {
       antidemote: {},
       antibot: {},
 
-      // Auto react settings
+      // Auto-react settings
       areact: {
         enabled: false,
         chats: {},
@@ -50,26 +54,18 @@ function loadSettings() {
       // Warning system
       warnings: { enabled: true, maxWarnings: 3, chats: {} },
 
-      // Bot info
+      // Bot info for menu
       botName: "Dave AI",
       ownername: "Dev-dave",
       owner: ["254104260236"]
     }, null, 2));
   }
 
-  const settings = JSON.parse(fs.readFileSync(settingsPath));
-
-  // Make mode accessible globally
-  global.mode = settings.mode; // "public" or "private"
-
-  return settings;
+  return JSON.parse(fs.readFileSync(settingsPath));
 }
 
 function saveSettings(settings) {
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-
-  // update global after saving
-  global.mode = settings.mode;
 }
 
 module.exports = { loadSettings, saveSettings };
