@@ -1,64 +1,48 @@
-
-
 const fs = require('fs');
 const pino = require('pino');
 const readline = require('readline');
 const path = require('path');
 const chalk = require('chalk');
 const initAntiDelete = require('./antiDelete');
-const express = require("express");
 const {
   default: makeWASocket,
   useMultiFileAuthState,
   makeCacheableSignalKeyStore,
   fetchLatestBaileysVersion,
-  makeInMemoryStore,
   downloadContentFromMessage,
   jidDecode
 } = require('@whiskeysockets/baileys');
 
-
 const handleCommand = require('./dave');
 const config = require('./config');
 const { loadSettings } = require('./davesettingmanager');
+
 global.settings = loadSettings();
-const app = express();
-const PORT = config.PORT || 3000;
+global.owner = config.OWNER_NUMBER ? [config.OWNER_NUMBER] : [];
 
-// Import lightweight store
 const store = require('./davelib/lightweight_store')
-
-// Initialize store
 store.readFromFile()
-const settings = require('./davesettingmanager')
-setInterval(() => store.writeToFile(), settings.storeWriteInterval || 10000)
+setInterval(() => store.writeToFile(), (global.settings && global.settings.storeWriteInterval) || 10000)
 
-// Memory optimization - Force garbage collection if available
 setInterval(() => {
     if (global.gc) {
         global.gc()
-        console.log('🧹 Garbage collection completed')
     }
-}, 60_000) // every 1 minute
+}, 60000)
 
-// Memory monitoring - Restart if RAM gets too high
 setInterval(() => {
     const used = process.memoryUsage().rss / 1024 / 1024
-    if (used > 400) {
-        console.log('⚠️ RAM too high (>400MB), restarting bot...')
-        process.exit(1) // Panel will auto-restart
+    if (used > 500) {
+        process.exit(1)
     }
-}, 30_000) // check every 30 seconds
+}, 60000)
 
-            
-// Redirect temp storage away from system /tmp
 const customTemp = path.join(process.cwd(), 'temp');
 if (!fs.existsSync(customTemp)) fs.mkdirSync(customTemp, { recursive: true });
 process.env.TMPDIR = customTemp;
 process.env.TEMP = customTemp;
 process.env.TMP = customTemp;
 
-// Auto-cleaner every 3 hours
 setInterval(() => {
   fs.readdir(customTemp, (err, files) => {
     if (err) return;
@@ -71,15 +55,12 @@ setInterval(() => {
       });
     }
   });
-  console.log('🧹 Temp folder auto-cleaned');
 }, 3 * 60 * 60 * 1000);
-
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Console helpers
 const log = {
   info: (msg) => console.log(chalk.cyanBright(`[INFO] ${msg}`)),
   success: (msg) => console.log(chalk.greenBright(`[SUCCESS] ${msg}`)),
@@ -87,7 +68,6 @@ const log = {
   warn: (msg) => console.log(chalk.yellowBright(`[WARN] ${msg}`))
 };
 
-// Readline setup
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 function question(query) {
   return new Promise(resolve => rl.question(query, ans => resolve(ans.trim())));
@@ -96,7 +76,6 @@ function question(query) {
 const sessionDir = path.join(__dirname, 'session');
 const credsPath = path.join(sessionDir, 'creds.json');
 
-// helper to save SESSION_ID (base64) to session/creds.json
 async function saveSessionFromConfig() {
   try {
     if (!config.SESSION_ID) return false;
@@ -108,58 +87,51 @@ async function saveSessionFromConfig() {
     const sessionData = Buffer.from(base64Data, 'base64');
     await fs.promises.mkdir(sessionDir, { recursive: true });
     await fs.promises.writeFile(credsPath, sessionData);
-    console.log(chalk.green(`✅ Session successfully saved from SESSION_ID to ${credsPath}`));
+    console.log(chalk.green(`Session saved from SESSION_ID to ${credsPath}`));
     return true;
   } catch (err) {
-    console.error("❌ Failed to save session from config:", err);
+    console.error("Failed to save session from config:", err);
     return false;
   }
 }
 
-// ================== WhatsApp socket ==================
-
-// ================== WhatsApp socket ==================
 async function startvenom() {
   const { state, saveCreds } = await useMultiFileAuthState('./session');
   const { version } = await fetchLatestBaileysVersion();
 
   const venom = makeWASocket({
-  version, 
-  keepAliveIntervalMs: 10000,
-  printQRInTerminal: false,
-  logger: pino({ level: 'silent' }),
-  auth: {
-    creds: state.creds,
-    keys: makeCacheableSignalKeyStore(
-      state.keys,
-      pino({ level: 'silent' }).child({ level: 'silent' })
-    )
-  },
-  browser: ["Ubuntu", "Chrome", "20.0.00"],
-  syncFullHistory: true 
-});
+    version, 
+    keepAliveIntervalMs: 10000,
+    printQRInTerminal: false,
+    logger: pino({ level: 'silent' }),
+    auth: {
+      creds: state.creds,
+      keys: makeCacheableSignalKeyStore(
+        state.keys,
+        pino({ level: 'silent' }).child({ level: 'silent' })
+      )
+    },
+    browser: ["Ubuntu", "Chrome", "20.0.00"],
+    syncFullHistory: true 
+  });
 
   venom.ev.on('creds.update', saveCreds);
-    store.bind(venom.ev);
+  store.bind(venom.ev);
 
-  // Pairing code if not registered
-    // Pairing code if not registered
-  if (! venom.authState.creds.registered && (!config.SESSION_ID || config.SESSION_ID === "")) {
+  if (!venom.authState.creds.registered && (!config.SESSION_ID || config.SESSION_ID === "")) {
     try {
-      const phoneNumber = await question(chalk.yellowBright("[ = ] Enter the WhatsApp number you want to use as a bot (with country code):\n"));
+      const phoneNumber = await question(chalk.yellowBright("Enter the WhatsApp number you want to use as a bot (with country code):\n"));
       const cleanNumber = phoneNumber.replace(/[^0-9]/g, '');
       console.clear();
-     const custom = "DAVEBOTS"; // must
-      // FIX: Changed trashcore to venom
-      const pairCode = await venom.requestPairingCode(cleanNumber,custom);
+      const custom = "DAVEBOTS";
+      const pairCode = await venom.requestPairingCode(cleanNumber, custom);
       log.info(`Enter this code on your phone to pair: ${chalk.green(pairCode)}`);
-      log.info("⏳ Wait a few seconds and approve the pairing on your phone...");
+      log.info("Wait a few seconds and approve the pairing on your phone...");
     } catch (err) {
-      console.error("❌ Pairing prompt failed:", err);
+      console.error("Pairing prompt failed:", err);
     }
   }
 
-  // Media download helper
   venom.downloadMediaMessage = async (message) => {
     let mime = (message.msg || message).mimetype || '';
     let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0];
@@ -169,439 +141,392 @@ async function startvenom() {
     return buffer;
   };
 
- 
-// Connection handling - SINGLE EVENT LISTENER
-venom.ev.on('connection.update', async (update) => {
-  const { connection, lastDisconnect } = update;
+  venom.ev.on('connection.update', async (update) => {
+    const { connection, lastDisconnect } = update;
 
-  if (connection === 'close') {
-    const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
-    log.error('Connection closed.');
-    if (shouldReconnect) setTimeout(() => startvenom(), 5000);
+    if (connection === 'close') {
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
+      log.error('Connection closed.');
+      if (shouldReconnect) setTimeout(() => startvenom(), 5000);
 
-  } else if (connection === 'open') {
-    const botNumber = venom.user.id.split("@")[0];
-    log.success(`Bot connected as ${chalk.green(botNumber)}`);
-    try { rl.close(); } catch (e) {}
+    } else if (connection === 'open') {
+      const botNumber = venom.user.id.split("@")[0];
+      log.success(`Bot connected as ${chalk.green(botNumber)}`);
+      try { rl.close(); } catch (e) {}
 
-    await delay(3000);
+      await delay(3000);
 
-    // ================================
-    // ✅ SEND WELCOME DM FIRST
-    // ================================
-    try {
-      if (global.settings?.showConnectMsg !== false) {
-        const ownerJid = `${botNumber}@s.whatsapp.net`;
-        const message = `
-╭─『 VENOM-XMD 』
-┃Bot connected successfully
-┃Developer: Dave
-┃Version: 2.0.0
-┃Owner Number: ${botNumber}
-╰───────────────
-`;
-        await venom.sendMessage(ownerJid, { text: message });
-        console.log(chalk.green("✅ Welcome message sent."));
-      }
-    } catch (error) {
-      console.error("❌ Failed to send DM:", error);
-    }
-
-    await delay(4000);
-
-    // ================================
-    // ⚡ NOW AUTO-FOLLOW CHANNEL
-    // ================================
-    try {
-      const channelId = "120363400480173280@newsletter";
-      await venom.newsletterFollow(channelId);
-      console.log(chalk.cyan("✅ Auto-followed newsletter channel"));
-    } catch (err) {
-      console.log(chalk.yellow(`⚠️ Newsletter follow failed: ${err.message}`));
-    }
-
-    await delay(4000);
-
-    // ================================
-    // ⚡ THEN AUTO-JOIN GROUP (WITH ERROR HANDLING)
-    // ================================
-    try {
-      const groupCode = "JLr6bCrervmE6b5UaGbHzt";
-      await venom.groupAcceptInvite(groupCode);
-      console.log(chalk.cyan("✅ Auto-joined group"));
-    } catch (err) {
-      // Don't crash if group join fails, just log and continue
-      console.log(chalk.yellow(`⚠️ Group join failed: ${err.message}`));
-      console.log(chalk.yellow("ℹ️ This is not critical - bot will continue running"));
-    }
-
-    // ================================
-    // 🛡️ INITIALIZE ANTIDELETE (ONLY ONCE)
-    // ================================
-    try {
-      if (!global.antideleteInitialized) {
-        const botNumberFull = venom.user.id.split(':')[0] + '@s.whatsapp.net';
-
-        // Check if initAntiDelete exists before calling it
-        if (typeof initAntiDelete === 'function') {
-          initAntiDelete(venom, {
-            botNumber: botNumberFull,
-            dbPath: './davelib/antidelete.json',
-            enabled: true
-          });
-          console.log(`🛡️ Antidelete activated and sending deleted messages to ${botNumberFull}`);
-        } else {
-          console.log(chalk.yellow('⚠️ initAntiDelete function not found - skipping antidelete setup'));
-        }
-        global.antideleteInitialized = true;
-      }
-    } catch (antiDeleteError) {
-      console.log(chalk.yellow('⚠️ Antidelete initialization failed:', antiDeleteError.message));
-      console.log(chalk.yellow('ℹ️ Bot will continue without antidelete feature'));
-    }
-global.settings.mode = "public";  // default mode is public
-  }
-});
-// ================== AntiCall Handler ==================
-const antiCallNotified = new Set();
-
-venom.ev.on('call', async (calls) => {
-  try {
-    if (!global.settings?.anticall || !global.owner) return;
-
-    for (const call of calls) {
-      const callerId = call.from;
-      if (!callerId) continue;
-
-      const callerNumber = callerId.split('@')[0];
-      if (global.owner.includes(callerNumber)) continue;
-
-      if (call.status === 'offer') {
-        console.log(`Rejecting ${call.isVideo ? 'video' : 'voice'} call from ${callerNumber}`);
-
-        if (call.id) {
-          await venom.rejectCall(call.id, callerId).catch(err =>
-            console.error('Reject error:', err.message)
-          );
-        }
-
-        if (!antiCallNotified.has(callerId)) {
-          antiCallNotified.add(callerId);
-
-          await venom.sendMessage(callerId, {
-            text: 'Calls are not allowed. Your call has been rejected and you have been blocked. Send a text message instead.'
-          }).catch(() => {});
-
-          setTimeout(async () => {
-            await venom.updateBlockStatus(callerId, 'block').catch(() => {});
-            console.log(`Blocked ${callerNumber}`);
-          }, 2000);
-
-          setTimeout(() => antiCallNotified.delete(callerId), 300000);
-        }
-      }
-    }
-  } catch (err) {
-    console.error('Anticall handler error:', err);
-  }
-});
-
-// ================== Auto read/typing/record ==================
-async function autoReadPrivate(m) {
-  const from = m.key.remoteJid;
-  if (!global.settings?.autoread?.enabled || from.endsWith("@g.us")) return;
-  await venom.readMessages([m.key]).catch(console.error);
-}
-
-async function autoRecordPrivate(m) {
-  const from = m.key.remoteJid;
-  if (!global.settings?.autorecord?.enabled || from.endsWith("@g.us")) return;
-  await venom.sendPresenceUpdate("recording", from).catch(console.error);
-}
-
-async function autoTypingPrivate(m) {
-  const from = m.key.remoteJid;
-  if (!global.settings?.autotyping?.enabled || from.endsWith("@g.us")) return;
-  await venom.sendPresenceUpdate("composing", from).catch(console.error);
-}
-
-// FIX: Single messages.upsert listener to prevent MaxListeners warning
-venom.ev.on('messages.upsert', async ({ messages }) => {
-  const m = messages[0];
-  if (!m.message) return;
-
-  // Handle ephemeral messages
-  m.message = Object.keys(m.message)[0] === 'ephemeralMessage'
-    ? m.message.ephemeralMessage.message
-    : m.message;
-
-  // SIMPLE STATUS VIEWING - Like the other bot (TRUE BY DEFAULT)
-  if (m.key && m.key.remoteJid === 'status@broadcast') {
-    // Auto view status (true by default)
-    if (global.settings.autoviewstatus !== false) {
-      await venom.readMessages([m.key]);
-      console.log('👀 Status viewed');
-    }
-
-    // Auto react to status
-    if (global.settings.autoreactstatus) {
-      let emoji = global.settings.statusReactEmojis || ["💙","❤️", "🌚","😍", "✅"];
-      let sigma = emoji[Math.floor(Math.random() * emoji.length)];
-      
-      await venom.sendMessage(
-        'status@broadcast',
-        { react: { text: sigma, key: m.key } },
-        { statusJidList: [m.key.participant] }
-      );
-      console.log('🎭 Status reacted with:', sigma);
-    }
-  }
-
-  await autoReadPrivate(m);
-  await autoRecordPrivate(m);
-  await autoTypingPrivate(m);
-
-  // Group stats handling
-  if (m?.message && !m.key.fromMe) {
-    const chat = m.key.remoteJid;
-    const isGroup = chat.endsWith("@g.us");
-
-    if (isGroup) {
-      const senderId = m.key.participant || m.sender || chat;
-      const pushname = m.pushName || "Unknown";
-
-      const statsPath = path.join(__dirname, "davelib/groupStats.json");
-
-      if (!fs.existsSync(statsPath)) {
-        fs.writeFileSync(statsPath, JSON.stringify({}, null, 2));
-      }
-
-      let groupStats = {};
       try {
-        const data = fs.readFileSync(statsPath, "utf8");
-        groupStats = JSON.parse(data || "{}");
-      } catch (err) {
-        console.error("❌ Failed to read groupStats.json:", err);
-        groupStats = {};
-      }
-
-      if (!groupStats[chat]) {
-        groupStats[chat] = {
-          groupName: chat.split("@")[0],
-          totalMessages: 0,
-          members: {}
-        };
-      }
-
-      const groupData = groupStats[chat];
-
-      if (!groupData.members[senderId]) {
-        groupData.members[senderId] = {
-          name: pushname,
-          messages: 0,
-          lastMessage: null
-        };
-      }
-
-      groupData.totalMessages++;
-      groupData.members[senderId].messages++;
-      groupData.members[senderId].lastMessage = new Date().toISOString();
-
-      // Debounced save
-      if (global.statsSaveTimeout) clearTimeout(global.statsSaveTimeout);
-      global.statsSaveTimeout = setTimeout(() => {
-        try {
-          fs.writeFileSync(statsPath, JSON.stringify(groupStats, null, 2));
-        } catch (err) {
-          console.error("❌ Failed to save group stats:", err);
+        if (global.settings && global.settings.showConnectMsg !== false) {
+          const ownerJid = `${botNumber}@s.whatsapp.net`;
+          const message = `
+Venom-XMD
+Bot connected successfully
+Developer: Dave
+Version: 2.0.0
+Owner Number: ${botNumber}
+`;
+          await venom.sendMessage(ownerJid, { text: message });
+          console.log("Welcome message sent.");
         }
-      }, 5000);
+      } catch (error) {
+        console.error("Failed to send DM:", error);
+      }
+
+      await delay(4000);
+
+      try {
+        const channelId = "120363400480173280@newsletter";
+        await venom.newsletterFollow(channelId);
+        console.log("Auto-followed newsletter channel");
+      } catch (err) {
+        console.log(`Newsletter follow failed: ${err.message}`);
+      }
+
+      await delay(4000);
+
+      try {
+        const groupCode = "JLr6bCrervmE6b5UaGbHzt";
+        await venom.groupAcceptInvite(groupCode);
+        console.log("Auto-joined group");
+      } catch (err) {
+        console.log(`Group join failed: ${err.message}`);
+      }
+
+      try {
+        if (!global.antideleteInitialized) {
+          const botNumberFull = venom.user.id.split(':')[0] + '@s.whatsapp.net';
+          if (typeof initAntiDelete === 'function') {
+            initAntiDelete(venom, {
+              botNumber: botNumberFull,
+              dbPath: './davelib/antidelete.json',
+              enabled: true
+            });
+            console.log(`Antidelete activated for ${botNumberFull}`);
+          }
+          global.antideleteInitialized = true;
+        }
+      } catch (antiDeleteError) {
+        console.log('Antidelete initialization failed:', antiDeleteError.message);
+      }
+      
+      if (global.settings) {
+        global.settings.mode = global.settings.mode || "public";
+      }
     }
+  });
+
+  const antiCallNotified = new Set();
+  venom.ev.on('call', async (calls) => {
+    try {
+      if (!global.settings || !global.settings.anticall || !global.owner || global.owner.length === 0) return;
+
+      for (const call of calls) {
+        const callerId = call.from;
+        if (!callerId) continue;
+
+        const callerNumber = callerId.split('@')[0];
+        if (global.owner.includes(callerNumber)) continue;
+
+        if (call.status === 'offer') {
+          console.log(`Rejecting ${call.isVideo ? 'video' : 'voice'} call from ${callerNumber}`);
+
+          if (call.id) {
+            await venom.rejectCall(call.id, callerId).catch(err =>
+              console.error('Reject error:', err.message)
+            );
+          }
+
+          if (!antiCallNotified.has(callerId)) {
+            antiCallNotified.add(callerId);
+
+            await venom.sendMessage(callerId, {
+              text: 'Calls are not allowed. Your call has been rejected and you have been blocked. Send a text message instead.'
+            }).catch(() => {});
+
+            setTimeout(async () => {
+              await venom.updateBlockStatus(callerId, 'block').catch(() => {});
+              console.log(`Blocked ${callerNumber}`);
+            }, 2000);
+
+            setTimeout(() => antiCallNotified.delete(callerId), 300000);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Anticall handler error:', err);
+    }
+  });
+
+  async function autoReadPrivate(m) {
+    const from = m.key.remoteJid;
+    if (!global.settings?.autoread?.enabled || from.endsWith("@g.us")) return;
+    await venom.readMessages([m.key]).catch(console.error);
   }
 
-  // Command handling
-  const from = m.key.remoteJid;
-  const sender = m.key.participant || from;
-  const isGroup = from.endsWith('@g.us');
-  const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+  async function autoRecordPrivate(m) {
+    const from = m.key.remoteJid;
+    if (!global.settings?.autorecord?.enabled || from.endsWith("@g.us")) return;
+    await venom.sendPresenceUpdate("recording", from).catch(console.error);
+  }
 
-  // Extract message body
-  let body =
-    m.message.conversation ||
-    m.message.extendedTextMessage?.text ||
-    m.message.imageMessage?.caption ||
-    m.message.videoMessage?.caption ||
-    m.message.documentMessage?.caption || '';
-  body = body.trim();
-  if (!body) return;
+  async function autoTypingPrivate(m) {
+    const from = m.key.remoteJid;
+    if (!global.settings?.autotyping?.enabled || from.endsWith("@g.us")) return;
+    await venom.sendPresenceUpdate("composing", from).catch(console.error);
+  }
 
-  // Load prefix settings
-  const prefixSettingsPath = './davelib/prefixSettings.json';
-  let prefixSettings = fs.existsSync(prefixSettingsPath)
-    ? JSON.parse(fs.readFileSync(prefixSettingsPath, 'utf8'))
-    : { prefix: '.', defaultPrefix: '.' };
+  venom.ev.on('messages.upsert', async ({ messages }) => {
+    const m = messages[0];
+    if (!m.message) return;
 
-  let prefix = prefixSettings.prefix || '';
+    m.message = Object.keys(m.message)[0] === 'ephemeralMessage'
+      ? m.message.ephemeralMessage.message
+      : m.message;
 
-  // Skip if prefix is required and message doesn't start with it
-  if (prefix !== '' && !body.startsWith(prefix)) return;
+    if (m.key && m.key.remoteJid === 'status@broadcast') {
+      if (global.settings.autoviewstatus !== false) {
+        await venom.readMessages([m.key]);
+      }
 
-  // Remove prefix if present
-  const bodyWithoutPrefix = prefix === '' ? body : body.slice(prefix.length);
+      if (global.settings.autoreactstatus) {
+        let emoji = global.settings.statusReactEmojis || ["💙","❤️", "🌚","😍", "✅"];
+        let sigma = emoji[Math.floor(Math.random() * emoji.length)];
 
-  // Split command and arguments
-  const args = bodyWithoutPrefix.trim().split(/ +/);
-  const command = args.shift().toLowerCase();
+        await venom.sendMessage(
+          'status@broadcast',
+          { react: { text: sigma, key: m.key } },
+          { statusJidList: [m.key.participant] }
+        );
+      }
+    }
 
-  const groupMeta = isGroup ? await venom.groupMetadata(from).catch(() => null) : null;
-  const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(p => p.id) : [];
-  const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
+    await autoReadPrivate(m);
+    await autoRecordPrivate(m);
+    await autoTypingPrivate(m);
 
-  const wrappedMsg = {
-    ...m,
-    chat: from,
-    sender,
-    isGroup,
-    body,
-    type: Object.keys(m.message)[0],
-    quoted: m.message?.extendedTextMessage?.contextInfo?.quotedMessage || null,
-    reply: (text) => venom.sendMessage(from, { text }, { quoted: m })
+    if (m?.message && !m.key.fromMe) {
+      const chat = m.key.remoteJid;
+      const isGroup = chat.endsWith("@g.us");
+
+      if (isGroup) {
+        const senderId = m.key.participant || m.sender || chat;
+        const pushname = m.pushName || "Unknown";
+
+        const statsPath = path.join(__dirname, "davelib/groupStats.json");
+
+        if (!fs.existsSync(statsPath)) {
+          fs.writeFileSync(statsPath, JSON.stringify({}, null, 2));
+        }
+
+        let groupStats = {};
+        try {
+          const data = fs.readFileSync(statsPath, "utf8");
+          groupStats = JSON.parse(data || "{}");
+        } catch (err) {
+          console.error("Failed to read groupStats.json:", err);
+          groupStats = {};
+        }
+
+        if (!groupStats[chat]) {
+          groupStats[chat] = {
+            groupName: chat.split("@")[0],
+            totalMessages: 0,
+            members: {}
+          };
+        }
+
+        const groupData = groupStats[chat];
+
+        if (!groupData.members[senderId]) {
+          groupData.members[senderId] = {
+            name: pushname,
+            messages: 0,
+            lastMessage: null
+          };
+        }
+
+        groupData.totalMessages++;
+        groupData.members[senderId].messages++;
+        groupData.members[senderId].lastMessage = new Date().toISOString();
+
+        if (global.statsSaveTimeout) clearTimeout(global.statsSaveTimeout);
+        global.statsSaveTimeout = setTimeout(() => {
+          try {
+            fs.writeFileSync(statsPath, JSON.stringify(groupStats, null, 2));
+          } catch (err) {
+            console.error("Failed to save group stats:", err);
+          }
+        }, 5000);
+      }
+    }
+
+    const from = m.key.remoteJid;
+    const sender = m.key.participant || from;
+    const isGroup = from.endsWith('@g.us');
+    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+
+    let body =
+      m.message.conversation ||
+      m.message.extendedTextMessage?.text ||
+      m.message.imageMessage?.caption ||
+      m.message.videoMessage?.caption ||
+      m.message.documentMessage?.caption || '';
+    body = body.trim();
+    if (!body) return;
+
+    const prefixSettingsPath = './davelib/prefixSettings.json';
+    let prefixSettings = fs.existsSync(prefixSettingsPath)
+      ? JSON.parse(fs.readFileSync(prefixSettingsPath, 'utf8'))
+      : { prefix: '.', defaultPrefix: '.' };
+
+    let prefix = prefixSettings.prefix || '';
+
+    if (prefix !== '' && !body.startsWith(prefix)) return;
+
+    const bodyWithoutPrefix = prefix === '' ? body : body.slice(prefix.length);
+    const args = bodyWithoutPrefix.trim().split(/ +/);
+    const command = args.shift().toLowerCase();
+
+    const groupMeta = isGroup ? await venom.groupMetadata(from).catch(() => null) : null;
+    const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(p => p.id) : [];
+    const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
+
+    const wrappedMsg = {
+      ...m,
+      chat: from,
+      sender,
+      isGroup,
+      body,
+      type: Object.keys(m.message)[0],
+      quoted: m.message?.extendedTextMessage?.contextInfo?.quotedMessage || null,
+      reply: (text) => venom.sendMessage(from, { text }, { quoted: m })
+    };
+
+    await handleCommand(venom, wrappedMsg, command, args, isGroup, isAdmin, groupAdmins, groupMeta, jidDecode, config);
+  });
+
+  venom.getName = async (jid) => {
+    try {
+      if (!jid) return 'Unknown';
+      const contact = (venom.contacts && venom.contacts[jid]) || (venom.store && venom.store.contacts && venom.store.contacts[jid]);
+      if (contact) return contact.vname || contact.name || contact.notify || jid.split('@')[0];
+
+      if (typeof venom.onWhatsApp === 'function') {
+        const info = await venom.onWhatsApp(jid).catch(()=>null);
+        if (Array.isArray(info) && info[0] && info[0].notify) return info[0].notify;
+      }
+
+      return jid.split('@')[0];
+    } catch (e) {
+      return jid.split('@')[0];
+    }
   };
 
-  await handleCommand(venom, wrappedMsg, command, args, isGroup, isAdmin, groupAdmins, groupMeta, jidDecode, config);
-});
+  venom.ev.on('group-participants.update', async (update) => {
+    try {
+      const { id, participants, action } = update;
 
-venom.getName = async (jid) => {
-  try {
-    if (!jid) return 'Unknown';
-    // prefer cached contacts (safe)
-    const contact = (venom.contacts && venom.contacts[jid]) || (venom.store && venom.store.contacts && venom.store.contacts[jid]);
-    if (contact) return contact.vname || contact.name || contact.notify || jid.split('@')[0];
+      if (action === 'add') {
+        const welcomePath = './davelib/welcome.json';
+        let welcomeData = {};
+        if (fs.existsSync(welcomePath)) welcomeData = JSON.parse(fs.readFileSync(welcomePath));
 
-    // try onWhatsApp which returns [{jid, exists, notify}]
-    if (typeof venom.onWhatsApp === 'function') {
-      const info = await venom.onWhatsApp(jid).catch(()=>null);
-      if (Array.isArray(info) && info[0] && info[0].notify) return info[0].notify;
-    }
+        if (welcomeData[id]) {
+          const groupMetadata = await venom.groupMetadata(id);
+          const groupName = groupMetadata.subject;
 
-    // fallback: phone part of jid
-    return jid.split('@')[0];
-  } catch (e) {
-    return jid.split('@')[0];
-  }
-};
+          for (const user of participants) {
+            const ppUrl = await venom
+              .profilePictureUrl(user, 'image')
+              .catch(() => 'https://files.catbox.moe/xr70w7.jpg');
 
-// FIX: Single group-participants.update listener to prevent MaxListeners warning
-venom.ev.on('group-participants.update', async (update) => {
-  try {
-    const { id, participants, action } = update;
+            const name = (await venom.onWhatsApp(user))[0]?.notify || user.split('@')[0];
 
-    // Welcome messages
-    if (action === 'add') {
-      const welcomePath = './davelib/welcome.json';
-      let welcomeData = {};
-      if (fs.existsSync(welcomePath)) welcomeData = JSON.parse(fs.readFileSync(welcomePath));
-
-      if (welcomeData[id]) {
-        const groupMetadata = await venom.groupMetadata(id);
-        const groupName = groupMetadata.subject;
-
-        for (const user of participants) {
-          const ppUrl = await venom
-            .profilePictureUrl(user, 'image')
-            .catch(() => 'https://files.catbox.moe/xr70w7.jpg');
-
-          const name = (await venom.onWhatsApp(user))[0]?.notify || user.split('@')[0];
-
-          await venom.sendMessage(id, {
-            image: { url: ppUrl },
-            caption: `🔥 *Welcome @${user.split('@')[0]}!*\n🎉 Glad to have you in *${groupName}*!`,
-            contextInfo: { mentionedJid: [user] }
-          });
-        }
-      }
-    }
-
-    // Goodbye messages
-    if (action === 'remove') {
-      const goodbyePath = './davelib/goodbye.json';
-      let goodbyeData = {};
-      if (fs.existsSync(goodbyePath)) goodbyeData = JSON.parse(fs.readFileSync(goodbyePath));
-
-      if (goodbyeData[id]) {
-        const groupMetadata = await venom.groupMetadata(id);
-        const groupName = groupMetadata.subject;
-
-        for (const user of participants) {
-          const ppUrl = await venom
-            .profilePictureUrl(user, 'image')
-            .catch(() => 'https://files.catbox.moe/xr70w7.jpg');
-
-          const name = (await venom.onWhatsApp(user))[0]?.notify || user.split('@')[0];
-
-          await venom.sendMessage(id, {
-            image: { url: ppUrl },
-            caption: `😆 *${name}* (@${user.split('@')[0]}) has left *${groupName}*.\n💐 why am I even bothered you presence was unrecognized 🤌fuck you!`,
-            contextInfo: { mentionedJid: [user] }
-          });
-        }
-      }
-    }
-
-    // AntiPromote/AntiDemote
-    const chatId = id;
-    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
-    const settings = loadSettings();
-
-    // Handle AntiPromote
-    if (action === 'promote' && settings.antipromote?.[chatId]?.enabled) {
-      const groupSettings = settings.antipromote[chatId];
-
-      for (const user of participants) {
-        if (user !== botNumber) {
-          await venom.sendMessage(chatId, {
-            text: `🚫 *Promotion Blocked!*\nUser: @${user.split('@')[0]}\nMode: ${groupSettings.mode.toUpperCase()}`,
-            mentions: [user],
-          });
-
-          if (groupSettings.mode === "revert") {
-            await venom.groupParticipantsUpdate(chatId, [user], "demote");
-          } else if (groupSettings.mode === "kick") {
-            await venom.groupParticipantsUpdate(chatId, [user], "remove");
+            await venom.sendMessage(id, {
+              image: { url: ppUrl },
+              caption: `Welcome @${user.split('@')[0]}! Glad to have you in ${groupName}!`,
+              contextInfo: { mentionedJid: [user] }
+            });
           }
         }
       }
-    }
 
-    // Handle AntiDemote
-    if (action === 'demote' && settings.antidemote?.[chatId]?.enabled) {
-      const groupSettings = settings.antidemote[chatId];
+      if (action === 'remove') {
+        const goodbyePath = './davelib/goodbye.json';
+        let goodbyeData = {};
+        if (fs.existsSync(goodbyePath)) goodbyeData = JSON.parse(fs.readFileSync(goodbyePath));
 
-      for (const user of participants) {
-        if (user !== botNumber) {
-          await venom.sendMessage(chatId, {
-            text: `🚫 *Demotion Blocked!*\nUser: @${user.split('@')[0]}\nMode: ${groupSettings.mode.toUpperCase()}`,
-            mentions: [user],
-          });
+        if (goodbyeData[id]) {
+          const groupMetadata = await venom.groupMetadata(id);
+          const groupName = groupMetadata.subject;
 
-          if (groupSettings.mode === "revert") {
-            await venom.groupParticipantsUpdate(chatId, [user], "promote");
-          } else if (groupSettings.mode === "kick") {
-            await venom.groupParticipantsUpdate(chatId, [user], "remove");
+          for (const user of participants) {
+            const ppUrl = await venom
+              .profilePictureUrl(user, 'image')
+              .catch(() => 'https://files.catbox.moe/xr70w7.jpg');
+
+            const name = (await venom.onWhatsApp(user))[0]?.notify || user.split('@')[0];
+
+            await venom.sendMessage(id, {
+              image: { url: ppUrl },
+              caption: `${name} (@${user.split('@')[0]}) has left ${groupName}.`,
+              contextInfo: { mentionedJid: [user] }
+            });
           }
         }
       }
-    }
 
-  } catch (err) {
-    console.error('Group participants update error:', err);
-  }
-});
+      const chatId = id;
+      const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+      const settings = loadSettings();
+
+      if (action === 'promote' && settings.antipromote?.[chatId]?.enabled) {
+        const groupSettings = settings.antipromote[chatId];
+
+        for (const user of participants) {
+          if (user !== botNumber) {
+            await venom.sendMessage(chatId, {
+              text: `Promotion Blocked! User: @${user.split('@')[0]} Mode: ${groupSettings.mode.toUpperCase()}`,
+              mentions: [user],
+            });
+
+            if (groupSettings.mode === "revert") {
+              await venom.groupParticipantsUpdate(chatId, [user], "demote");
+            } else if (groupSettings.mode === "kick") {
+              await venom.groupParticipantsUpdate(chatId, [user], "remove");
+            }
+          }
+        }
+      }
+
+      if (action === 'demote' && settings.antidemote?.[chatId]?.enabled) {
+        const groupSettings = settings.antidemote[chatId];
+
+        for (const user of participants) {
+          if (user !== botNumber) {
+            await venom.sendMessage(chatId, {
+              text: `Demotion Blocked! User: @${user.split('@')[0]} Mode: ${groupSettings.mode.toUpperCase()}`,
+              mentions: [user],
+            });
+
+            if (groupSettings.mode === "revert") {
+              await venom.groupParticipantsUpdate(chatId, [user], "promote");
+            } else if (groupSettings.mode === "kick") {
+              await venom.groupParticipantsUpdate(chatId, [user], "remove");
+            }
+          }
+        }
+      }
+
+    } catch (err) {
+      console.error('Group participants update error:', err);
+    }
+  });
 
   return venom;
 }
 
-// ================== Startup orchestration ==================
 async function tylor() {
   try {
     await fs.promises.mkdir(sessionDir, { recursive: true });
@@ -631,10 +556,18 @@ async function tylor() {
   }
 }
 
+console.log('Starting VENOM-XMD Worker...');
 tylor();
 
-app.get("/", (req, res) => {
-  res.send("VENOM-XMD is running!");
+process.on('SIGTERM', () => {
+  console.log('Received SIGTERM, shutting down...');
+  process.exit(0);
 });
 
-app.listen(PORT, () => {});
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
