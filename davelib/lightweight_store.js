@@ -4,20 +4,42 @@ const STORE_FILE = './baileys_store.json'
 // Config: keep last 20 messages per chat (configurable) - More aggressive for lower RAM
 let MAX_MESSAGES = 20
 
-// Try to read config from settings
+// Try to read config from settings - FIXED VERSION
 try {
-    const settings = require('../davesettingmanager.js')
+    const settingsModule = require('./davesettingmanager.js')
+    const settings = settingsModule.loadSettings()
     if (settings.maxStoreMessages && typeof settings.maxStoreMessages === 'number') {
         MAX_MESSAGES = settings.maxStoreMessages
+        console.log(`📦 Store: Using max ${MAX_MESSAGES} messages per chat`)
     }
 } catch (e) {
-    // Use default if settings not available
+    console.log('⚠️ Store: Using default message limit (20) -', e.message)
 }
 
 const store = {
     messages: {},
     contacts: {},
     chats: {},
+
+    // Add method to update max messages dynamically
+    setMaxMessages(max) {
+        if (typeof max === 'number' && max > 0) {
+            MAX_MESSAGES = max
+            console.log(`📦 Store: Updated max messages to ${MAX_MESSAGES}`)
+            
+            // Trim existing messages to new limit
+            Object.keys(this.messages).forEach(jid => {
+                if (this.messages[jid].length > MAX_MESSAGES) {
+                    this.messages[jid] = this.messages[jid].slice(-MAX_MESSAGES)
+                }
+            })
+        }
+    },
+
+    // Add method to get current max messages
+    getMaxMessages() {
+        return MAX_MESSAGES
+    },
 
     readFromFile(filePath = STORE_FILE) {
         try {
