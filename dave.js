@@ -91,63 +91,94 @@ function jidDecode(jid) {
     return { user, server };
 }
 
-// =============== MAIN FUNCTION ===============
-module.exports = async function handleCommand(venom, m, command,groupAdmins,isBotAdmins,groupMeta,config,prefix) {
+// ==================== MAIN FUNCTION ====================
+module.exports = async function handleCommand(
+    venom, 
+    m, 
+    command, 
+    groupAdmins, 
+    isBotAdmins, 
+    groupMeta, 
+    config, 
+    prefix
+) {
 
-    // ======= Safe JID decoding =======
+    // ================== FIXED DECODE ==================
     venom.decodeJid = (jid) => {
         if (!jid) return jid;
         if (/:\d+@/gi.test(jid)) {
             let decode = jidDecode(jid) || {};
             return decode.user && decode.server ? `${decode.user}@${decode.server}` : jid;
-        } else return jid;
+        }
+        return jid;
     };
-    const from = venom.decodeJid(m.key.remoteJid);
-    const sender = m.key.participant || m.key.remoteJid;
-    const participant = venom.decodeJid(m.key.participant || from);
+
+    // ============ BASIC META ============
+    const from = venom.decodeJid(m.key.remoteJid); // chat ID (group or private)
+    
+    // TRUE sender JID for group + private
+    const senderJid = venom.decodeJid(
+        m.key.participant || m.participant || m.key.remoteJid
+    );
+
     const pushname = m.pushName || "Unknown User";
     const chatType = from.endsWith('@g.us') ? 'Group' : 'Private';
-    const chatName = chatType === 'Group' ? (groupMeta?.subject || 'Unknown Group') : pushname;
+    const chatName = isGroup ? (groupMeta?.subject || "Unknown Group") : pushname;
 
-    // Safe owner check
-    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
-    const senderJid = m.key.participant || m.key.remoteJid;
-    const isOwner = senderJid === botNumber;
+    // ============ TRUE OWNER (GLOBAL FRIENDLY) ============
+    // The number that logged in the bot session is the actual owner
+    const realOwner = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+    const isOwner = senderJid === realOwner;
 
-    // FIXED: Proper reply function using fkontak as quoted parameter
+    // ============ BOT NUMBER ============
+    const botNumber = venom.decodeJid(realOwner);
+
+    // ============ GROUP CHECK ============
+    const isGroup = from.endsWith("@g.us");
+
+    // FIXED: decode all admin JIDs
+    const adminList = (groupAdmins || []).map(j => venom.decodeJid(j));
+
+    const isAdmin = isGroup && adminList.includes(senderJid);
+    const isBotAdmin = isGroup && adminList.includes(botNumber);
+
+    // ============ REPLY HELPERS ============
     const reply = (text) => {
-        const fake = createFakeContact(m); // Use the message object like
-        return venom.sendMessage(from, { 
-            text: text 
-        }, { 
-            quoted: fake  // ✅ Use fake as quoted parameter
-        });
+        const fake = createFakeContact(m);
+        return venom.sendMessage(from, { text }, { quoted: fake });
     };
 
-    // For replies with context info (images, buttons, etc.)
     const replyWithContext = async (text, options = {}) => {
         const fake = createFakeContact(m);
-        return venom.sendMessage(from, {
-            text: text,
-            ...options
-        }, { 
-            quoted: fake 
-        });
+        return venom.sendMessage(from, { text, ...options }, { quoted: fake });
     };
 
-    const isGroup = from.endsWith('@g.us'); // true if group
+    // ============ MESSAGE PARSING ============
     const ctx = m.message.extendedTextMessage?.contextInfo || {};
     const quoted = ctx.quotedMessage;
     const quotedSender = venom.decodeJid(ctx.participant || from);
-    const mentioned = ctx.mentionedJid?.map(venom.decodeJid) || [];
+    const mentioned = ctx.mentionedJid?.map(x => venom.decodeJid(x)) || [];
 
-    const body = m.message.conversation || m.message.extendedTextMessage?.text || '';
+    const body =
+        m.message.conversation ||
+        m.message.extendedTextMessage?.text ||
+        m.body ||
+        "";
+
+    // Extract command properly
+    const usedCmd = body.startsWith(prefix)
+        ? body.slice(prefix.length).trim().split(" ")[0]
+        : null;
+
+    // final command to use
+    command = usedCmd || command;
+
     const args = body.trim().split(/ +/).slice(1);
     const q = args.join(" ");
-    const text = args.join(" ");
 
     const time = new Date().toLocaleTimeString();
 
+    
     if (m.message) {
         const isGroupMsg = m.isGroup;
         const body = m.body || m.messageStubType || "—";
