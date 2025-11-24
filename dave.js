@@ -481,61 +481,55 @@ case 'public': {
     break;
 }
 
-// ================= AUTO REACT STATUS =================
 case 'autoreactstatus':
 case 'autostatusreact':
 case 'reactstatus':
 case 'statusreact': {
     try {
         // Only bot owner can use this
-        if (!isOwner) return reply("❌ Only the bot owner can toggle auto-react status!");
+        if (!isOwner) return reply("Only the bot owner can toggle auto-react status.");
 
         const option = args[0]?.toLowerCase();
 
         // Use your existing settings structure
         global.settings = global.settings || { 
-            autoreactstatus: true,
-            statusReactEmojis: ["💙","❤️", "🌚","😍", "✅"]
+            autoreactstatus: false,
+            statusReactEmojis: ["💙","❤️","🌚","😍","✅"]
         };
 
         if (option === 'on' || option === 'enable') {
             global.settings.autoreactstatus = true;
             saveSettings(global.settings);
-            return reply("✅ *Auto-React Status enabled!* The bot will now automatically react to status updates.");
+            return reply("Auto-React Status enabled. The bot will now automatically react to status updates.");
         }
 
         if (option === 'off' || option === 'disable') {
             global.settings.autoreactstatus = false;
             saveSettings(global.settings);
-            return reply("*Auto-React Status disabled!* The bot will no longer react to status updates.");
+            return reply("Auto-React Status disabled. The bot will no longer react to status updates.");
         }
 
         // Set custom emojis
         if (option === 'set' || option === 'emoji') {
             const emojis = args.slice(1);
-            if (emojis.length === 0) {
-                return reply("Please provide emojis! Example: `.autoreactstatus set ❤️ 🔥 😎`");
-            }
+            if (!emojis.length) return reply("Please provide emojis! Example: `.autoreactstatus set ❤️ 🔥 😎`");
+
             global.settings.statusReactEmojis = emojis;
             saveSettings(global.settings);
-            return reply(`✅ *Status reaction emojis updated!*\nNew emojis: ${emojis.join(' ')}`);
+            return reply(`Status reaction emojis updated. New emojis: ${emojis.join(' ')}`);
         }
 
-        // Show current status
-        const currentEmojis = global.settings.statusReactEmojis || ["💙","❤️", "🌚","😍", "✅"];
+        // Show current status (clean, no emojis in message text)
+        const currentEmojis = global.settings.statusReactEmojis || [];
         return reply(
-            `🎭 *Auto-React Status Settings*\n\n` +
-            `• Status: ${global.settings.autoreactstatus ? "✅ ON" : "❌ OFF"}\n` +
-            `• Emojis: ${currentEmojis.join(' ')}\n\n` +
-            `Usage:\n` +
-            `- ${prefix}autoreactstatus on\n` +
-            `- ${prefix}autoreactstatus off\n` +
-            `- ${prefix}autoreactstatus set ❤️ 🔥 😎`
+            `Auto-React Status Settings\n` +
+            `Status: ${global.settings.autoreactstatus ? "ON" : "OFF"}\n` +
+            `Emojis: ${currentEmojis.join(' ')}`
         );
 
     } catch (err) {
         console.error("AutoReact Status Command Error:", err);
-        reply("❌ An error occurred while updating auto-react status settings.");
+        reply("An error occurred while updating auto-react status settings.");
     }
     break;
 }
@@ -1106,54 +1100,13 @@ case 'checkbotname': {
 }
 
 // ================= AUTO VIEW STATUS =================
-case 'autoviewstatus':
-case 'autostatusview':
-case 'viewstatus':
-case 'statusview': {
-    try {
-        // Only bot owner can use this
-        if (!isOwner) return reply("❌ Only the bot owner can usw this command!");
 
-        const option = args[0]?.toLowerCase();
-
-        // Use your existing settings structure
-        global.settings = global.settings || { autoviewstatus: true };
-
-        if (option === 'on' || option === 'enable') {
-            global.settings.autoviewstatus = true;
-            saveSettings(global.settings);
-            return reply("✅ *Auto-View Status enabled!* The bot will now automatically view status updates.");
-        }
-
-        if (option === 'off' || option === 'disable') {
-            global.settings.autoviewstatus = false;
-            saveSettings(global.settings);
-            return reply("❌ *Auto-View Status disabled!* The bot will no longer view status updates.");
-        }
-
-        // Show current status
-        return reply(
-            `👁️ *Auto-View Status Settings*\n\n` +
-            `• Status: ${global.settings.autoviewstatus ? "✅ ON" : "❌ OFF"}\n\n` +
-            `Usage:\n` +
-            `- ${prefix}autoviewstatus on\n` +
-            `- ${prefix}autoviewstatus off`
-        );
-
-    } catch (err) {
-        console.error("AutoView Status Command Error:", err);
-        reply("❌ An error occurred while updating auto-view status settings.");
-    }
-    break;
-}
-
-// ================= AUTO READ MESSAGES =================
-case 'autoread':
+ case 'autoread':
 case 'autoreadmessages':
 case 'readmessages': {
     try {
         // Only bot owner can use this
-        if (!isOwner) return reply("❌ Only the bot owner can use this command !");
+        if (!isOwner) return reply("Only the bot owner can use this command.");
 
         const option = args[0]?.toLowerCase();
 
@@ -1163,31 +1116,66 @@ case 'readmessages': {
         if (option === 'on' || option === 'enable') {
             global.settings.autoread.enabled = true;
             saveSettings(global.settings);
-            return reply("✅ *Auto-Read Messages enabled!* The bot will now automatically mark messages as read.");
+            return reply("Auto-Read Messages enabled. The bot will now automatically mark messages as read.");
         }
 
         if (option === 'off' || option === 'disable') {
             global.settings.autoread.enabled = false;
             saveSettings(global.settings);
-            return reply("❌ *Auto-Read Messages disabled!* The bot will no longer mark messages as read.");
+            return reply("Auto-Read Messages disabled. The bot will no longer mark messages as read.");
         }
 
-        // Show current status
+        // Show current status (clean, no emojis, no usage lines)
         return reply(
-            `📖 *Auto-Read Messages Settings*\n\n` +
-            `• Status: ${global.settings.autoread?.enabled ? "✅ ON" : "❌ OFF"}\n\n` +
-            `Usage:\n` +
-            `- ${prefix}autoread on\n` +
-            `- ${prefix}autoread off`
+            `Auto-Read Messages Settings\n` +
+            `Status: ${global.settings.autoread?.enabled ? "ON" : "OFF"}`
         );
 
     } catch (err) {
         console.error("AutoRead Command Error:", err);
-        reply("❌ An error occurred while updating auto-read settings.");
+        reply("An error occurred while updating auto-read settings.");
     }
     break;
 }
-// ================= AUTO REACT MESSAGES =================
+
+case 'autoviewstatus':
+case 'autostatusview':
+case 'viewstatus':
+case 'statusview': {
+    try {
+        // Only bot owner can use this
+        if (!isOwner) return reply("Only the bot owner can use this command.");
+
+        const option = args[0]?.toLowerCase();
+
+        // Use your existing settings structure
+        global.settings = global.settings || { autoviewstatus: false };
+
+        if (option === 'on' || option === 'enable') {
+            global.settings.autoviewstatus = true;
+            saveSettings(global.settings);
+            return reply("Auto-View Status enabled. The bot will now automatically view status updates.");
+        }
+
+        if (option === 'off' || option === 'disable') {
+            global.settings.autoviewstatus = false;
+            saveSettings(global.settings);
+            return reply("Auto-View Status disabled. The bot will no longer view status updates.");
+        }
+
+        // Show current status (clean, no emojis, no usage lines)
+        return reply(
+            `Auto-View Status Settings\n` +
+            `Status: ${global.settings.autoviewstatus ? "ON" : "OFF"}`
+        );
+
+    } catch (err) {
+        console.error("AutoView Status Command Error:", err);
+        reply("An error occurred while updating auto-view status settings.");
+    }
+    break;
+}
+
 case 'areact':
 case 'autoreactmessages':
 case 'reactmessage':
@@ -1195,37 +1183,33 @@ case 'autoreactmessage':
 case 'arm': {
     try {
         // Only bot owner can use this
-        if (!isOwner) return reply("❌ Only the bot owner can toggle auto-react messages!");
+        if (!isOwner) return reply("Only the bot owner can toggle auto-react messages!");
 
         const option = args[0]?.toLowerCase();
 
+        // Enable auto-react for this chat
+        global.autoReact = global.autoReact || {};
+
         if (option === 'on' || option === 'enable') {
-            // Enable auto-react for this chat
-            global.autoReact = global.autoReact || {};
             global.autoReact[m.chat] = true;
-            return reply("✅ *Auto-React enabled for this chat!*");
+            return reply("Auto-React enabled for this chat.");
         }
 
         if (option === 'off' || option === 'disable') {
-            // Disable auto-react for this chat
-            global.autoReact = global.autoReact || {};
             global.autoReact[m.chat] = false;
-            return reply("❌ *Auto-React disabled for this chat!*");
+            return reply("Auto-React disabled for this chat.");
         }
 
         // Show current status
-        const isEnabled = global.autoReact && global.autoReact[m.chat];
+        const isEnabled = global.autoReact[m.chat];
         return reply(
-            `🎭 *Auto-React Settings*\n\n` +
-            `• Status: ${isEnabled ? "✅ ON" : "❌ OFF"}\n\n` +
-            `Usage:\n` +
-            `- ${prefix}areact on\n` +
-            `- ${prefix}areact off`
+            `Auto-React Settings\n\n` +
+            `Status: ${isEnabled ? "ON" : "OFF"}`
         );
 
     } catch (err) {
         console.error("AutoReact Command Error:", err);
-        reply("❌ An error occurred while updating auto-react settings.");
+        reply("An error occurred while updating auto-react settings.");
     }
     break;
 }
@@ -1630,13 +1614,12 @@ case 'help': {
 ┃ ✦ Users    : *${totalUsers}*
 ┃ ✦ Commands : *${totalCommands}*
 ┃ ✦ Host     : *${host}*
-┃ ✦ Mode     : *${global.settings?.public ? 'Public' : 'Private'}*
+┃ ✦ Mode     : *${global.settings?.mode === 'public' ? 'Public' : 'Private'}*
 ┗━━━━━━━━━━━━━━━━━━
 
-*${botName.toUpperCase()} CONTROL*
+*╭─「 ʙᴏᴛ ᴄᴏɴᴛʀᴏʟ 」*
 ┣➤ ping
 ┣➤ public 
-┣➤ dave(menu)
 ┣➤ private
 ┣➤ autoread
 ┣➤ autotyping
@@ -1648,284 +1631,157 @@ case 'help': {
 ┣➤ setmenuimage
 ┣➤ setmenuvideo
 ┣➤ antidelete
-┣➤ setmenu
-┣➤ updatebot
-┣➤ gitclone
+┣➤ update
 ┣➤ restart
-┣➤ block
-┣➤ unblock
-┣➤ backup
 ┣➤ clearchat
-┣➤ listgc
-┣➤ listowner
-┣➤ onlygroup
-┣➤ onlypc
-┣➤ unavailable
 ┣➤ anticall
-┣➤ autoreact charts
-┣➤ setpp
+┣➤ areact
+┣➤ autoreactstatus
+┣➤ autoviewstatus
+┣➤ chatbot
+┣➤ welcomemessage
 ┣➤ disp-1
 ┣➤ disp-7
 ┣➤ disp-90
 ┣➤ disp-off
-┣➤ vv
-┗➤ addowner
+┗➤ vv
 
-*OWNER MANAGEMENT*
-┣➤ join
-┣➤ addowner
-┣➤ delowner
-┣➤ setnamabot
-┣➤ setbiobot
-┣➤ setppbot
-┣➤ delppbot
-┗➤ listowner
+*╭─「 ᴏᴡɴᴇʀ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ 」*
+┣➤ setbotname
+┣➤ getbotname
+┗➤ resetbotname
 
-
-*GROUP MANAGEMENT*
+*╭─「 ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ 」*
 ┣➤ add
 ┣➤ kick
 ┣➤ promote
 ┣➤ demote
 ┣➤ setdesc
-┣➤ setppgc
 ┣➤ tagall
 ┣➤ hidetag
-┣➤ group
 ┣➤ linkgc
-┣➤ revoke
-┣➤ listonline
 ┣➤ welcome
+┣➤ goodbye
 ┣➤ antilink
-┣➤ antilinkgc
-┣➤ warning
-┣➤ unwarning
+┣➤ antitag
+┣➤ antibot
+┣➤ antidemote
+┣➤ antipromote
+┣➤ antibadword
 ┣➤ kill
-┣➤ close
-┣➤ open
-┣➤ closetime
-┣➤ opentime
-┣➤ vcf
-┗➤ vcf2
+┣➤ mute
+┣➤ unmute
+┣➤ approve
+┗➤ reject
 
-*ANALYSIS TOOLS*
+*╭─「 ᴀɴᴀʟʏꜱɪꜱ ᴛᴏᴏʟꜱ 」*
 ┣➤ weather
 ┣➤ checktime
 ┣➤ repo
 ┣➤ fact
-┣➤ claude-ai
 ┣➤ gitstalk
+┣➤ githubstalk
 ┣➤ ssweb
 ┣➤ whois
 ┣➤ scan
 ┣➤ catphotos
 ┣➤ wormgpt
-┣➤ myip
-┣➤ trackip
 ┣➤ ocr
-┣➤ trt
-┣➤ profile
-┗➤ githubstalk
+┗➤ readtext
 
-*MEDIA DOWNLOAD*
-┣➤ tiktok
+*╭─「 ᴍᴇᴅɪᴀ ᴅᴏᴡɴʟᴏᴀᴅ 」*
 ┣➤ play
+┣➤ play2
+┣➤ playdoc
 ┣➤ song
-┣➤ igdl
+┣➤ igdl2
 ┣➤ fb
+┣➤ ig
 ┣➤ video
 ┣➤ ytmp3
 ┣➤ ytmp4
-┣➤ playdoc
 ┣➤ mediafire
-┣➤ snackvideo
-┣➤ capcut
-┣➤ apk
-┣➤ instagram
+┣➤ pindl
+┣➤ sfile
+┣➤ web2zip
 ┗➤ gitclone
 
-*AI & CHATGPT*
+*╭─「 ᴀɪ & ᴄʜᴀᴛɢᴘᴛ 」*
 ┣➤ ai
-┣➤ ai2
 ┣➤ gpt
-┣➤ gemma
-┣➤ mistral
-┣➤ gemini
-┣➤ luminai
-┣➤ openai
-┣➤ dave
-┣➤ imagebing
-┣➤ edit-ai
-┣➤ toanime
-┣➤ toreal
-┣➤ remove-wm
-┣➤ editanime
-┣➤ faceblur
-┗➤ removebg
+┣➤ llama
+┣➤ qwen
+┣➤ wormgpt
+┣➤ imagine
+┗➤ copilot
 
-*CONVERSION TOOLS*
+*╭─「 ᴄᴏɴᴠᴇʀꜱɪᴏɴ ᴛᴏᴏʟꜱ 」*
 ┣➤ toaudio
-┣➤ tovoicenote
+┣➤ tovn
+┣➤ toimg
 ┣➤ toimage
-┣➤ fast
-┣➤ slow
+┣➤ tovid
+┣➤ sticker
+┣➤ take
+┣➤ write
 ┣➤ bass
+┣➤ blown
 ┣➤ deep
+┣➤ earrape
+┣➤ fast
+┣➤ fat
+┣➤ nightcore
+┣➤ reverse
+┣➤ robot
+┣➤ slow
+┣➤ smooth
+┣➤ squirrel
 ┣➤ fancy
 ┣➤ tourl
-┣➤ tovideo
-┣➤ readtext
-┣➤ take
-┣➤ togif
-┣➤ tourl2
-┣➤ toqr
-┣➤ emojimix
-┣➤ hd
-┣➤ remini
-┣➤ hdvideo
-┗➤ readmore
+┣➤ url
+┣➤ upload
+┣➤ shorturl
+┣➤ convertphoto
+┗➤ convert
 
-*SEARCH TOOLS*
+*╭─「 ꜱᴇᴀʀᴄʜ ᴛᴏᴏʟꜱ 」*
 ┣➤ pinterest
-┣➤ yts
-┣➤ lyrics
-┣➤ dictionary
-┣➤ google
-┣➤ playstore
-┣➤ playstation
-┣➤ animesearch
-┣➤ whatsong
-┣➤ getpastebin
-┣➤ getpp
-┣➤ movie
-┣➤ fixtures
-┣➤ epl
-┣➤ laliga
-┣➤ bundesliga
-┣➤ serie-a
-┗➤ ligue-1
+┗➤ calc
 
-*EMAIL & UTILITIES*
-┣➤ sendemail
-┣➤ tempmail
+*╭─「 ᴜᴛɪʟɪᴛɪᴇꜱ 」*
 ┣➤ reactch
 ┣➤ idch
-┣➤ uploadstatus
-┣➤ save
-┣➤ viewonce
-┗➤ rvo
+┗➤ save
 
-*FUN & MEMES*
-┣➤ trash
-┣➤ wanted
-┣➤ hitler
-┣➤ meme
-┣➤ trigger
-┣➤ wasted
+*╭─「 ꜰᴜɴ & ᴍᴇᴍᴇꜱ 」*
 ┣➤ truth
 ┣➤ dare
-┣➤ brat
-┣➤ neko
-┣➤ shinobu
-┣➤ megumin
-┣➤ bully
-┣➤ cuddle
-┣➤ cry
-┣➤ hug
-┣➤ awoo
-┣➤ kiss
-┣➤ lick
-┣➤ pat
-┣➤ smug
-┣➤ bonk
-┣➤ yeet
-┣➤ blush
-┣➤ smile
-┣➤ wave
-┣➤ highfive
-┣➤ handhold
-┣➤ nom
-┣➤ bite
-┣➤ glomp
-┣➤ slap
-┣➤ kill
-┣➤ happy
-┣➤ wink
-┣➤ poke
-┣➤ dance
-┣➤ cringe
-┣➤ trap
-┣➤ blowjob
-┣➤ hentai
-┣➤ boobs
-┣➤ ass
-┣➤ pussy
-┣➤ thighs
-┣➤ lesbian
-┣➤ lewdneko
-┣➤ cum
-┣➤ woof
-┣➤ 8ball
-┣➤ goose
-┣➤ gecg
-┣➤ feed
-┣➤ avatar
-┣➤ fox_girl
-┣➤ lizard
-┣➤ spank
-┣➤ meow
-┣➤ tickle
-┣➤ waifu
-┗➤ cat
+┣➤ jokes
+┣➤ quote
+┣➤ insult
+┣➤ fact
+┗➤ waifu
 
-*BUG TOOLS*
-┣➤ daveandroid
-┣➤ daveandroid2
-┣➤ systemuicrash
-┣➤ xsysui
-┣➤ xios
-┣➤ xios2
-┗➤ dave-group
+*╭─「 ꜱᴘᴏʀᴛꜱ & ꜰᴏᴏᴛʙᴀʟʟ 」*
+┣➤ fixtures
+┣➤ epl
+┣➤ eplstandings
+┣➤ epltopscorers
+┣➤ laliga
+┣➤ bundesliga
+┣➤ bundesligastats
+┣➤ bundesligascores
+┣➤ ligue1table
+┣➤ liguescorers
+┣➤ serie-a
+┣➤ serieamatches
+┣➤ serieastats
+┣➤ serieascorers
+┣➤ livescore
+┣➤ player
+┗➤ club
 
-*TEXT EFFECTS & LOGOS*
-┣➤ glitchtext
-┣➤ writetext
-┣➤ advancedglow
-┣➤ blackpinklogo
-┣➤ effectclouds
-┣➤ galaxystyle
-┣➤ lighteffect
-┣➤ sandsummer
-┣➤ underwater
-┣➤ glossysilver
-┣➤ typographytext
-┣➤ pixelglitch
-┣➤ neonglitch
-┣➤ flagtext
-┣➤ flag3dtext
-┣➤ deletingtext
-┣➤ blackpinkstyle
-┣➤ glowingtext
-┣➤ underwatertext
-┣➤ logomaker
-┣➤ cartoonstyle
-┣➤ papercutstyle
-┣➤ watercolortext
-┣➤ gradienttext
-┣➤ summerbeach
-┣➤ luxurygold
-┣➤ multicoloredneon
-┣➤ galaxywallpaper
-┣➤ 1917style
-┣➤ makingneon
-┣➤ royaltext
-┗➤ freecreate
-
-*SPAM & TOOLS*
-┣➤ nglspam
-┣➤ sendchat
-
-*DEVELOPER TOOLS*
+*╭─「 ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏᴏʟꜱ 」*
 ┣➤ addcase
 ┣➤ addfile
 ┣➤ delcase
@@ -1933,32 +1789,31 @@ case 'help': {
 ┣➤ getcase
 ┣➤ getdep
 ┣➤ getfile
-┣➤ setvar
-┣➤ getvar
-┣➤ update
+┣➤ cat
 ┣➤ enc
-┣➤ tojs
-┣➤ listcase
-┣➤ pair
+┣➤ convert
 ┣➤ eval
 ┣➤ exec
 ┣➤ ls
-┣➤ copilot
-┗➤ vv
+┗➤ copilot
 
-*MAIN MENU*
+*╭─「 ꜱᴏᴜɴᴅ ᴇꜰꜰᴇᴄᴛꜱ 」*
+┗➤ sound1 - sound10
+
+*╭─「 ᴀᴄᴛɪᴠɪᴛʏ ᴛʀᴀᴄᴋɪɴɢ 」*
+┣➤ listactive
+┗➤ listinactive
+
+*╭─「 ᴍᴀɪɴ ᴍᴇɴᴜ 」*
 ┣➤ menu
-┣➤ buypremium
+┣➤ dave
+┣➤ allmenu
+┣➤ alive
 ┣➤ runtime
-┣➤ script
-┣➤ donate
 ┣➤ owner
 ┣➤ dev
-┣➤ request
-┣➤ Quran
-┗➤ Bible
+┗➤ request
 `;
-
   // ✅ CORRECTED: Use reply() function for text mode
   if (mode === 'image' && imageUrl) {
     await venom.sendMessage(from, {
@@ -1986,8 +1841,13 @@ case 'help': {
 // ================= SETPREFIX =================
 case 'setprefix': {
     try {
+        // OWNER CHECK (MATCHING YOUR STYLE)
+        if (!isOwner) {
+            return reply("❌ Only the owner can change the prefix!");
+        }
+
         const fs = require('fs');
-        const prefixSettingsPath = './davelib/prefixSettings.json'; // CHANGED TO davelib
+        const prefixSettingsPath = './davelib/prefixSettings.json';
 
         if (!args[0]) {
             return reply(`Provide a prefix!\nExample:\n• setprefix .\n• setprefix !\n• setprefix none`);
@@ -1996,7 +1856,6 @@ case 'setprefix': {
         let newPrefix = args[0].toLowerCase();
         if (newPrefix === "none") newPrefix = "";
 
-        // MUST MATCH WHAT index.js LOADS
         const prefixSettings = {
             prefix: newPrefix,
             defaultPrefix: newPrefix === "" ? "" : newPrefix
@@ -2004,7 +1863,7 @@ case 'setprefix': {
 
         fs.writeFileSync(prefixSettingsPath, JSON.stringify(prefixSettings, null, 2));
 
-        reply(`Prefix updated to: *${newPrefix === "" ? "none (no prefix)" : newPrefix}*`);
+        reply(`✅ Prefix updated to: *${newPrefix === "" ? "none (no prefix)" : newPrefix}*`);
     } catch (err) {
         console.error(err);
         reply("❌ Failed to set prefix!");
@@ -2012,16 +1871,15 @@ case 'setprefix': {
     break;
 }
 
-				case 'welcomemessage':
+
+			case 'welcomemessage':
 case 'connectmessage': 
 case 'inboxmessage': {
     try {
-        //  Only bot owner can use this
         if (!isOwner) return reply(" Only the bot owner can toggle connection messages!");
 
         const option = args[0]?.toLowerCase();
 
-        //  Ensure global settings exist
         global.settings = global.settings || { showConnectMsg: true };
 
         if (option === 'on') {
@@ -2036,13 +1894,10 @@ case 'inboxmessage': {
             return reply(" *Connection messages disabled!* The bot will no longer show connection messages.");
         }
 
-        //  Show current status
+        // CLEANED — removed the command usage lines
         return reply(
             ` *Connection Messages Settings*\n\n` +
-            `• Status: ${global.settings.showConnectMsg ? " ON" : " OFF"}\n\n` +
-            ` Usage:\n` +
-            `- ${command} on\n` +
-            `- ${command} off`
+            `• Status: ${global.settings.showConnectMsg ? " ON" : " OFF"}`
         );
 
     } catch (err) {
@@ -2051,7 +1906,7 @@ case 'inboxmessage': {
     }
     break;
 }
-				
+	
 // ================= SET MENU =================
             case 'setmenu': {
   if (!isOwner) return reply("⛔ Only the bot owner can use this command!");
@@ -2805,35 +2660,7 @@ case 'squirrel': {
 }
 
 
-case 'gpt': {
-  try {
-    const axios = require('axios');
 
-    if (!text) return reply("Please provide a question or prompt.\n\nExample:\n.gpt What is quantum computing?");
-
-    const apiUrl = `https://api.nekolabs.web.id/ai/cf/gpt-oss-120b?text=${encodeURIComponent(text)}`;
-    const { data } = await axios.get(apiUrl);
-
-    if (!data.success || !data.result) {
-      return reply("Could not get a response from the GPT API.");
-    }
-
-    // Handle both object and string results
-    const botReply =
-      typeof data.result === "string"
-        ? data.result
-        : JSON.stringify(data.result, null, 2);
-
-    await venom.sendMessage(from, {
-      text: `*GPT-OSS 120B says:*\n\n${botReply}`
-    }, { quoted: m });
-
-  } catch (err) {
-    console.error("gpt error:", err);
-    reply(`Error: ${err.message}`);
-  }
-  break;
-}
 // ================= LLAMA =================
 case 'llama': {
   try {
