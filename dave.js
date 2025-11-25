@@ -1576,6 +1576,16 @@ case 'help': {
 ┃ ✦ Mode     : *${global.settings?.mode === 'public' ? 'Public' : 'Private'}*
 ┗━━━━━━━━━━━━━━━━━━
 
+*╭─「 ᴍᴀɪɴ ᴍᴇɴᴜ 」*
+┣➤ menu
+┣➤ dave
+┣➤ allmenu
+┣➤ alive
+┣➤ runtime
+┣➤ owner
+┣➤ dev
+┗➤ request
+
 *╭─「 ʙᴏᴛ ᴄᴏɴᴛʀᴏʟ 」*
 ┣➤ ping
 ┣➤ public 
@@ -1616,8 +1626,10 @@ case 'help': {
 *╭─「 ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ 」*
 ┣➤ add
 ┣➤ kick
+┣➤listactive
 ┣➤ promote
 ┣➤ demote
+┣➤listinactive
 ┣➤ setdesc
 ┣➤ tagall
 ┣➤ hidetag
@@ -1762,19 +1774,6 @@ case 'help': {
 *╭─「 ꜱᴏᴜɴᴅ ᴇꜰꜰᴇᴄᴛꜱ 」*
 ┗➤ sound1 - sound10
 
-*╭─「 ᴀᴄᴛɪᴠɪᴛʏ ᴛʀᴀᴄᴋɪɴɢ 」*
-┣➤ listactive
-┗➤ listinactive
-
-*╭─「 ᴍᴀɪɴ ᴍᴇɴᴜ 」*
-┣➤ menu
-┣➤ dave
-┣➤ allmenu
-┣➤ alive
-┣➤ runtime
-┣➤ owner
-┣➤ dev
-┗➤ request
 `;
   // ✅ CORRECTED: Use reply() function for text mode
   if (mode === 'image' && imageUrl) {
@@ -1803,7 +1802,7 @@ case 'help': {
 // ================= SETPREFIX =================
 case 'setprefix': {
     try {
-        // OWNER CHECK (MATCHING YOUR STYLE)
+        
         if (!isOwner) {
             return reply("❌ Only the owner can change the prefix!");
         }
@@ -6797,15 +6796,14 @@ case 'toimage': {
 }
 
 
-// ================= ANTILINK =================
 case 'antilink': {
   try {
-const groupMeta = isGroup ? await venom.groupMetadata(from) : null;
-const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(p => p.id) : [];
-const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
-    if (!isGroup) return reply(" This command only works in groups!");
-     if (!isAdmin) return reply("You must be an admin first to execute this command!")     
-     if (!isOwner) return reply(" Only the bot owner can antilink use antilink command idiot!");
+    // Use the groupAdmins and groupMeta that are already passed from your function parameters
+    const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
+    
+    if (!isGroup) return reply("This command only works in groups!");
+    if (!isOwner) return reply("Only the bot owner can toggle antilink!");
+    
     const option = args[0]?.toLowerCase();
     const mode = args[1]?.toLowerCase() || "delete";
 
@@ -6818,7 +6816,7 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
     if (option === "on") {
       global.settings.antilink[groupId] = { enabled: true, mode };
       saveSettings(global.settings);
-      return reply(` *antilink enabled!*\nMode: ${mode.toUpperCase()}\nLinks will be ${mode === "kick" ? "deleted and user kicked" : "deleted"}.`);
+      return reply(`Antilink enabled! Mode: ${mode.toUpperCase()} Links will be ${mode === "kick" ? "deleted and user kicked" : "deleted"}.`);
     }
 
     if (option === "off") {
@@ -6826,27 +6824,72 @@ const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
         delete global.settings.antilink[groupId];
         saveSettings(global.settings);
       }
-      return reply(" *Antilink disabled for this group.*");
+      return reply("Antilink disabled for this group.");
     }
 
     // Show current status
     const current = global.settings.antilink[groupId];
     reply(
-      ` *Antilink Settings for This Group*\n\n` +
-      `• Status: ${current?.enabled ? " ON" : " OFF"}\n` +
-      `• Mode: ${current?.mode?.toUpperCase() || "DELETE"}\n\n` +
-      ` Usage:\n` +
-      `- .antilink on [delete/kick]\n` +
-      `- .antilink off`
+      `Antilink Settings for This Group\n\n` +
+      `Status: ${current?.enabled ? "ON" : "OFF"}\n` +
+      `Mode: ${current?.mode?.toUpperCase() || "DELETE"}\n\n` +
+      `Usage:\n` +
+      `.antilink on [delete/kick]\n` +
+      `.antilink off`
     );
 
   } catch (err) {
     console.error("Antilink Command Error:", err);
-    reply(" Error while updating antilink settings.");
+    reply("Error while updating antilink settings.");
   }
   break;
 }
 
+case 'shazam': {
+  try {
+    const axios = require('axios');
+    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+
+    const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    const msg = (quotedMsg && (quotedMsg.audioMessage || quotedMsg.voiceMessage)) || m.message?.audioMessage || m.message?.voiceMessage;
+
+    if (!msg) {
+      return reply("Please reply to an audio or voice message to identify the song!");
+    }
+
+    await venom.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
+
+    const stream = await downloadContentFromMessage(msg, msg.type === 'audioMessage' ? 'audio' : 'voice');
+    let buffer = Buffer.from([]);
+    for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+    // If your API needs a URL, you must host this buffer somewhere; otherwise, some APIs accept base64
+    const audioBase64 = buffer.toString('base64');
+
+    const res = await axios.get(`https://apiskeith.vercel.app/ai/shazam?url=<HOSTED_URL_OF_AUDIO>`); 
+    // Replace <HOSTED_URL_OF_AUDIO> with your hosted audio if needed
+
+    if (!res.data.status) {
+      return reply("Failed to recognize the song.");
+    }
+
+    const result = res.data.result;
+    let text = `Song Recognized!\n\n`;
+    text += `Title: ${result.title ?? "Unknown"}\n`;
+    text += `Artist: ${result.artist ?? "Unknown"}\n`;
+    if (result.album) text += `Album: ${result.album}\n`;
+    if (result.releaseDate) text += `Released: ${result.releaseDate}\n`;
+    if (result.shazamUrl) text += `More info: ${result.shazamUrl}\n`;
+
+    reply(text);
+    await venom.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+  } catch (err) {
+    console.error("Shazam Error:", err);
+    reply("Failed to identify the song. Please try again later.");
+    await venom.sendMessage(m.chat, { react: { text: "❌", key: m.key } });
+  }
+  break;
+}
 
 // ================= AUTORECORD =================
 case 'autorecord': {
