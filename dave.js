@@ -9,9 +9,9 @@ const { exec } = require('child_process');
 const path = require('path');
 const chalk = require('chalk');
 const os = require('os');
-const { writeFile } = require('./library/utils');
-const { saveSettings,loadSettings } = require('./settingsManager');
-const { fetchJson } = require('./library/fetch'); 
+const { writeFile } = require('./davelib/utils');
+const { saveSettings,loadSettings } = require('./davesettingmanager');
+const { fetchJson } = require('./davelib/fetch'); 
 
 // =============== COLORS ===============
 const colors = {
