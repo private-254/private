@@ -274,17 +274,16 @@ ${isGroupMsg ? ` GROUP: ${groupName}` : ""}
     }
 
     // REDUCED: Auto-react with fewer emojis
-    if (global.autoReact && global.autoReact[m.chat]) {
-        const emojis = ["❤️", "🔥", "⚡", "💫", "🎯", "😊", "👍", "👏"]; // Reduced emoji list
+    if (global.settings?.areact?.enabled && global.settings.areact.chats[m.chat]) {
+    const emojis = global.settings.areact.emojis || ["😂","🔥","😎","👍","💀","❤️","🤖","🥵","🙌","💯"];
+    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
 
-        const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-
-        try {
-            await reaction(venom, m, randomEmoji);
-        } catch (err) {
-            console.error('Error while reacting:', err.message);
-        }
+    try {
+        await reaction(venom, m, randomEmoji);
+    } catch (err) {
+        console.error('Error while reacting:', err.message);
     }
+}
 
     // AntiBadWord with Strike System
     if (isGroup && global.settings?.antibadword?.[from]?.enabled) {
@@ -1176,6 +1175,7 @@ case 'statusview': {
     break;
 }
 
+
 case 'areact':
 case 'autoreactmessages':
 case 'reactmessage':
@@ -1183,33 +1183,37 @@ case 'autoreactmessage':
 case 'arm': {
     try {
         // Only bot owner can use this
-        if (!isOwner) return reply("Only the bot owner can toggle auto-react messages!");
+        if (!isOwner) return reply("Only the bot owner can toggle auto-react messages.");
 
         const option = args[0]?.toLowerCase();
+        global.settings = global.settings || loadSettings(); // Make sure settings are loaded
 
-        // Enable auto-react for this chat
-        global.autoReact = global.autoReact || {};
+        // Initialize chats if not present
+        global.settings.areact.chats = global.settings.areact.chats || {};
 
         if (option === 'on' || option === 'enable') {
-            global.autoReact[m.chat] = true;
-            return reply("Auto-React enabled for this chat.");
+            global.settings.areact.enabled = true; // global toggle
+            global.settings.areact.chats[m.chat] = true; // per-chat toggle
+            saveSettings(global.settings);
+            return reply("Auto-React messages enabled for this chat.");
         }
 
         if (option === 'off' || option === 'disable') {
-            global.autoReact[m.chat] = false;
-            return reply("Auto-React disabled for this chat.");
+            global.settings.areact.chats[m.chat] = false; // per-chat toggle off
+            saveSettings(global.settings);
+            return reply("Auto-React messages disabled for this chat.");
         }
 
         // Show current status
-        const isEnabled = global.autoReact[m.chat];
+        const isEnabled = global.settings.areact.chats[m.chat] || false;
         return reply(
-            `Auto-React Settings\n\n` +
+            `Auto-React Messages Settings\n` +
             `Status: ${isEnabled ? "ON" : "OFF"}`
         );
 
     } catch (err) {
         console.error("AutoReact Command Error:", err);
-        reply("An error occurred while updating auto-react settings.");
+        reply("An error occurred while updating auto-react messages settings.");
     }
     break;
 }
@@ -1556,14 +1560,15 @@ case 'help': {
   const path = require('path');
   const process = require('process');
 
-  // 🔧 FIX: Simple path since both files are in root
+// 🔧 FIX: Simple path since both files are in root
   const settingsFile = './menuSettings.json';
 
   // Ensure menu settings file exists with text mode as default
   if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(settingsFile, JSON.stringify({ 
       mode: 'text',
-      botName: 'VENOM-XMD'
+      botName: 'VENOM-XMD',
+      ownerName: 'Gifted-Dave'
     }, null, 2));
   }
 
@@ -1575,7 +1580,8 @@ case 'help': {
     // If file is corrupted, reset to text default
     menuSettings = { 
       mode: 'text',
-      botName: 'VENOM-XMD'
+      botName: 'VENOM-XMD',
+      ownerName: 'Gifted-Dave'
     };
     fs.writeFileSync(settingsFile, JSON.stringify(menuSettings, null, 2));
   }
@@ -1586,6 +1592,9 @@ case 'help': {
 
   // 🔧 FIX: Get bot name ONLY from menuSettings.json, then fallback to defaults
   const botName = menuSettings.botName || config.BOT_NAME || global.settings?.botName || "VENOM-XMD";
+  
+  // 🔧 Get owner name from menuSettings.json, then fallback to defaults
+  const ownerName = menuSettings.ownerName || config.OWNER_NAME || global.settings?.ownerName || "Gifted-Dave";
 
   const usersFile = path.join(__dirname, 'davelib', 'users.json');
   if (!fs.existsSync(usersFile)) fs.writeFileSync(usersFile, JSON.stringify([]));
@@ -1595,6 +1604,7 @@ case 'help': {
     users.push(sender);
     fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
   }
+  
 
   const caseFile = path.join(__dirname, 'dave.js');
   const caseContent = fs.readFileSync(caseFile, 'utf8');
@@ -1609,6 +1619,7 @@ case 'help': {
   const menuText = `
 ┏━━━━━━━━━━━━━━━━━━━
 ┃ √ ${botName}
+┃ ✦ Owner    : *${ownerName}*
 ┃ ✦ Uptime   : *${uptimeFormatted}*
 ┃ ✦ RAM      : *${ramUsage} MB*  
 ┃ ✦ Users    : *${totalUsers}*
@@ -1627,9 +1638,6 @@ case 'help': {
 ┣➤ checksettings
 ┣➤ setdp
 ┣➤ setprefix
-┣➤ setmenu
-┣➤ setmenuimage
-┣➤ setmenuvideo
 ┣➤ antidelete
 ┣➤ update
 ┣➤ restart
@@ -1647,9 +1655,15 @@ case 'help': {
 ┗➤ vv
 
 *╭─「 ᴏᴡɴᴇʀ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ 」*
+┣➤ setownername
+┣➤ getownername
+┣➤ resetownername
 ┣➤ setbotname
 ┣➤ getbotname
-┗➤ resetbotname
+┣➤ resetbotname
+┣➤ setmenu
+┣➤ setmenuimage
+┗➤ setmenuvideo
 
 *╭─「 ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ 」*
 ┣➤ add
@@ -1941,6 +1955,80 @@ Current types:
 
   await reply(`✅ Your Menu display updated successfully!\nNew mode: *${type.toUpperCase()}*`);
   break;
+}
+
+case 'setownername':
+case 'setowner': {
+    if (!isOwner) return reply("⛔ Only the bot owner can use this command.");
+
+    const fs = require('fs');
+    const path = require('path');
+    const menuSettingsFile = path.join(__dirname, 'menuSettings.json');
+
+    const newOwnerName = args.join(' ');
+    if (!newOwnerName) return reply('📋 Usage: .setownername <new name>\n\nExample:\n.setownername Dave Tech');
+    if (newOwnerName.length > 50) return reply('❌ Owner name too long! Keep under 50 characters.');
+
+    // Update menuSettings.json
+    let menuSettings = fs.existsSync(menuSettingsFile)
+        ? JSON.parse(fs.readFileSync(menuSettingsFile, 'utf8'))
+        : { mode: 'text' };
+
+    menuSettings.ownerName = newOwnerName;
+    fs.writeFileSync(menuSettingsFile, JSON.stringify(menuSettings, null, 2));
+
+    // Update settings.json
+    const settings = loadSettings();
+    settings.ownername = newOwnerName;
+    saveSettings(settings);
+
+    await reply(`✅ Owner name updated successfully!\nNew name: *${newOwnerName}*`);
+    break;
+}
+
+case 'getownername':
+case 'checkownername': {
+    const fs = require('fs');
+    const path = require('path');
+    const menuSettingsFile = path.join(__dirname, 'menuSettings.json');
+    
+    let ownerName = "Gifted-Dave"; // Default
+
+    if (fs.existsSync(menuSettingsFile)) {
+        try {
+            const menuSettings = JSON.parse(fs.readFileSync(menuSettingsFile, 'utf8'));
+            if (menuSettings.ownerName) ownerName = menuSettings.ownerName;
+        } catch (err) {}
+    }
+
+    if (ownerName === "Gifted-Dave") {
+        const settings = loadSettings();
+        if (settings.ownername) ownerName = settings.ownername;
+    }
+
+    await reply(`👑 *Current Owner Name:* ${ownerName}\n\n💡 To change it, use:\n.setownername <new name>`);
+    break;
+}
+
+case 'resetownername': {
+    if (!isOwner) return reply("⛔ Only the bot owner can use this command.");
+
+    const fs = require('fs');
+    const path = require('path');
+    const menuSettingsFile = path.join(__dirname, 'menuSettings.json');
+
+    if (fs.existsSync(menuSettingsFile)) {
+        const menuSettings = JSON.parse(fs.readFileSync(menuSettingsFile, 'utf8'));
+        delete menuSettings.ownerName;
+        fs.writeFileSync(menuSettingsFile, JSON.stringify(menuSettings, null, 2));
+    }
+
+    const settings = loadSettings();
+    delete settings.ownername;
+    saveSettings(settings);
+
+    await reply('✅ Owner name reset to default: *Gifted-Dave*');
+    break;
 }
 // ================= SETMENU IMAGE=================
 case 'setmenuimage': {
