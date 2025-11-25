@@ -9,33 +9,9 @@ const { exec } = require('child_process');
 const path = require('path');
 const chalk = require('chalk');
 const os = require('os');
-const { writeFile } = require('./davelib/utils');
-const { saveSettings,loadSettings } = require('./davesettingmanager');
-global.settings = loadSettings();
-const { fetchJson } = require('./davelib/fetch'); 
-
-// Redirect temp storage away from system /tmp
-const customTemp = path.join(process.cwd(), 'temp');
-if (!fs.existsSync(customTemp)) fs.mkdirSync(customTemp, { recursive: true });
-process.env.TMPDIR = customTemp;
-process.env.TEMP = customTemp;
-process.env.TMP = customTemp;
-
-// Auto-cleaner every 3 hours
-setInterval(() => {
-  fs.readdir(customTemp, (err, files) => {
-    if (err) return;
-    for (const file of files) {
-      const filePath = path.join(customTemp, file);
-      fs.stat(filePath, (err, stats) => {
-        if (!err && Date.now() - stats.mtimeMs > 3 * 60 * 60 * 1000) {
-          fs.unlink(filePath, () => {});
-        }
-      });
-    }
-  });
-  console.log('🧹 Temp folder auto-cleaned');
-}, 3 * 60 * 60 * 1000);
+const { writeFile } = require('./library/utils');
+const { saveSettings,loadSettings } = require('./settingsManager');
+const { fetchJson } = require('./library/fetch'); 
 
 // =============== COLORS ===============
 const colors = {
@@ -56,7 +32,6 @@ function formatUptime(seconds) {
     return `${h}h ${m}m ${s}s`;
 }
 
-// Create fake contact for enhanced replies (EXACTLY like JUNE-X style)
 function createFakeContact(message) {
     return {
         key: {
@@ -74,9 +49,12 @@ function createFakeContact(message) {
     };
 }
 
-// React to message
 const reaction = async (venom, m, emoji) => {
-    return venom.sendMessage(m.chat, { react: { text: emoji, key: m.key } });
+    try {
+        return await venom.sendMessage(m.chat, { react: { text: emoji, key: m.key } });
+    } catch (e) {
+        console.log('Reaction failed:', e);
+    }
 }
 
 function checkFFmpeg() {
@@ -91,56 +69,32 @@ function jidDecode(jid) {
     return { user, server };
 }
 
-// ==================== MAIN FUNCTION ====================
-module.exports = async function handleCommand(
-    venom, 
-    m, 
-    command, 
-    groupAdmins, 
-    isBotAdmins, 
-    groupMeta, 
-    config, 
-    prefix
-) {
+// =============== MAIN FUNCTION ===============
+module.exports = async function handleCommand(venom, m, command, groupAdmins, isBotAdmins, groupMeta, config, prefix) {
 
-    // ================== FIXED DECODE ==================
+    // ======= Safe JID decoding =======
     venom.decodeJid = (jid) => {
         if (!jid) return jid;
         if (/:\d+@/gi.test(jid)) {
             let decode = jidDecode(jid) || {};
             return decode.user && decode.server ? `${decode.user}@${decode.server}` : jid;
-        }
-        return jid;
+        } else return jid;
     };
-
-    // ============ BASIC META ============
-    const from = venom.decodeJid(m.key.remoteJid); // chat ID (group or private)
     
-    // TRUE sender JID for group + private
-    const senderJid = venom.decodeJid(
-        m.key.participant || m.participant || m.key.remoteJid
-    );
-
+    const from = venom.decodeJid(m.key.remoteJid);
+    const sender = m.key.participant || m.key.remoteJid;
+    const participant = venom.decodeJid(m.key.participant || from);
     const pushname = m.pushName || "Unknown User";
     const chatType = from.endsWith('@g.us') ? 'Group' : 'Private';
-    const chatName = isGroup ? (groupMeta?.subject || "Unknown Group") : pushname;
+    const chatName = chatType === 'Group' ? (groupMeta?.subject || 'Unknown Group') : pushname;
 
-    // ============ TRUE OWNER (GLOBAL FRIENDLY) ============
-    // The number that logged in the bot session is the actual owner
-    const realOwner = venom.user.id.split(":")[0] + "@s.whatsapp.net";
-    const isOwner = senderJid === realOwner;
-
-    // ============ BOT NUMBER ============
-    const botNumber = venom.decodeJid(realOwner);
-
-    // ============ GROUP CHECK ============
-    const isGroup = from.endsWith("@g.us");
-
-    // FIXED: decode all admin JIDs
-    const adminList = (groupAdmins || []).map(j => venom.decodeJid(j));
-
-    const isAdmin = isGroup && adminList.includes(senderJid);
-    const isBotAdmin = isGroup && adminList.includes(botNumber);
+    // ============ SIMPLE OWNER & ADMIN CHECKS ============
+    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+    const senderJid = venom.decodeJid(m.key.participant || m.key.remoteJid);
+    const isOwner = senderJid === botNumber;
+    const isGroup = from.endsWith('@g.us');
+    const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
+    const isBotAdmin = isBotAdmins;
 
     // ============ REPLY HELPERS ============
     const reply = (text) => {
@@ -153,39 +107,32 @@ module.exports = async function handleCommand(
         return venom.sendMessage(from, { text, ...options }, { quoted: fake });
     };
 
-    // ============ MESSAGE PARSING ============
     const ctx = m.message.extendedTextMessage?.contextInfo || {};
     const quoted = ctx.quotedMessage;
     const quotedSender = venom.decodeJid(ctx.participant || from);
-    const mentioned = ctx.mentionedJid?.map(x => venom.decodeJid(x)) || [];
+    const mentioned = ctx.mentionedJid?.map(venom.decodeJid) || [];
 
-    const body =
-        m.message.conversation ||
-        m.message.extendedTextMessage?.text ||
-        m.body ||
-        "";
-
-    // Extract command properly
-    const usedCmd = body.startsWith(prefix)
-        ? body.slice(prefix.length).trim().split(" ")[0]
-        : null;
-
-    // final command to use
-    command = usedCmd || command;
-
+    const body = m.message.conversation || m.message.extendedTextMessage?.text || '';
     const args = body.trim().split(/ +/).slice(1);
     const q = args.join(" ");
+    const text = args.join(" ");
 
     const time = new Date().toLocaleTimeString();
 
-    
+    // ✅ AUTO-REACTION: Send processing indicator for ALL commands
+    try {
+        await reaction(venom, m, '⏳'); // Processing reaction
+    } catch (e) {
+        console.log('Could not send processing reaction:', e);
+    }
+
     if (m.message) {
         const isGroupMsg = m.isGroup;
         const body = m.body || m.messageStubType || "—";
         const pushnameDisplay = m.pushName || "Unknown";
         const command = body.startsWith(prefix) ? body.split(' ')[0] : null;
 
-        // Time in EAT
+        // 🕒 Time in EAT
         const date = new Date().toLocaleString("en-KE", {
             timeZone: "Africa/Nairobi",
             weekday: "long",
@@ -206,17 +153,17 @@ module.exports = async function handleCommand(
         const hourInt = parseInt(hour, 10);
         const ucapanWaktu =
             hourInt < 12
-                ? "Good Morning😇 "
+                ? "Good Morning ☀️"
                 : hourInt < 18
-                ? "Good Afternoon 💥"
-                : "Good Evening 🌚";
+                ? "Good Afternoon 🌤️"
+                : "Good Evening 🌙";
 
-        // Colors
+        // 🎨 Colors
         const headerColor = chalk.black.bold.bgHex("#ff5e78");  // Pink header
         const subHeaderColor = chalk.white.bold.bgHex("#4a69bd"); // Blue header
         const bodyColor = chalk.black.bgHex("#fdcb6e"); // Yellow box
 
-        // Fetch group metadata if group message safely
+        // 🏠 Fetch group metadata if group message safely
         let groupName = "";
         if (isGroupMsg) {
             try {
@@ -227,25 +174,26 @@ module.exports = async function handleCommand(
             }
         }
 
-        // Log output
-        console.log(headerColor(`\n ${ucapanWaktu} `));
+        // 🧾 Log output
+        console.log(headerColor(`\n🌟 ${ucapanWaktu} 🌟`));
         console.log(
             subHeaderColor(
-                ` ${isGroupMsg ? "GROUP MESSAGE RECEIVED" : "PRIVATE MESSAGE RECEIVED"} `
+                `🚀 ${isGroupMsg ? "GROUP MESSAGE RECEIVED" : "PRIVATE MESSAGE RECEIVED"} 🚀`
             )
         );
 
         const info = `
- DATE (EAT): ${date}
- MESSAGE: ${body}
- SENDERNAME: ${pushnameDisplay}
- JID: ${m.sender}
-${isGroupMsg ? ` GROUP: ${groupName}` : ""}
+📅 DATE (EAT): ${date}
+💬 MESSAGE: ${body}
+🗣️ SENDERNAME: ${pushnameDisplay}
+👤 JID: ${m.sender}
+${isGroupMsg ? `🏠 GROUP: ${groupName}` : ""}
 `;
 
         console.log(bodyColor(info));
     }
 
+    
     // --- ANTI-TAG AUTO CHECK ---
     if (isGroup && global.settings?.antitag?.[from]?.enabled) {
         const settings = global.settings.antitag[from];
