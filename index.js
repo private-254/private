@@ -18,7 +18,6 @@ const config = require('./config');
 const { loadSettings } = require('./davesettingmanager');
 
 global.settings = loadSettings();
-global.owner = config.OWNER_NUMBER ? [config.OWNER_NUMBER] : [];
 
 // Command cooldown system
 global.userCooldowns = {};
@@ -117,6 +116,33 @@ async function saveSessionFromConfig() {
   }
 }
 
+// Group stats system
+const statsPath = path.join(__dirname, "davelib/groupStats.json");
+if (!fs.existsSync(statsPath)) {
+  fs.writeFileSync(statsPath, JSON.stringify({}, null, 2));
+}
+
+let groupStats = {};
+try {
+  const data = fs.readFileSync(statsPath, "utf8");
+  groupStats = JSON.parse(data || "{}");
+} catch (err) {
+  console.error("Failed to read groupStats.json:", err);
+  groupStats = {};
+}
+
+let statsSaveTimeout;
+function saveStats() {
+  clearTimeout(statsSaveTimeout);
+  statsSaveTimeout = setTimeout(() => {
+    try {
+      fs.writeFileSync(statsPath, JSON.stringify(groupStats, null, 2));
+    } catch (err) {
+      console.error("Failed to save group stats:", err);
+    }
+  }, 5000);
+}
+
 async function startvenom() {
   const { state, saveCreds } = await useMultiFileAuthState('./session');
   const { version } = await fetchLatestBaileysVersion();
@@ -139,6 +165,24 @@ async function startvenom() {
 
   venom.ev.on('creds.update', saveCreds);
   store.bind(venom.ev);
+
+  // Add getName function to venom
+  venom.getName = async (jid) => {
+    try {
+      if (!jid) return 'Unknown';
+      const contact = (venom.contacts && venom.contacts[jid]) || (venom.store && venom.store.contacts && venom.store.contacts[jid]);
+      if (contact) return contact.vname || contact.name || contact.notify || jid.split('@')[0];
+
+      if (typeof venom.onWhatsApp === 'function') {
+        const info = await venom.onWhatsApp(jid).catch(()=>null);
+        if (Array.isArray(info) && info[0] && info[0].notify) return info[0].notify;
+      }
+
+      return jid.split('@')[0];
+    } catch (e) {
+      return jid.split('@')[0];
+    }
+  };
 
   if (!venom.authState.creds.registered && (!config.SESSION_ID || config.SESSION_ID === "")) {
     try {
@@ -173,6 +217,11 @@ async function startvenom() {
 
     } else if (connection === 'open') {
       const botNumber = venom.user.id.split("@")[0];
+      
+      // Set owner dynamically to bot's number
+      global.owner = [botNumber];
+      console.log(`Global owner set to bot number: ${botNumber}`);
+      
       log.success(`Bot connected as ${chalk.green(botNumber)}`);
       try { rl.close(); } catch (e) {}
 
@@ -183,13 +232,13 @@ async function startvenom() {
           const ownerJid = `${botNumber}@s.whatsapp.net`;
           const message = `
 ╔═══════════════════════
-║      🚀 VENOM-XMD
+║      VENOM-XMD
 ╠═══════════════════════
-║ ✅ Bot connected successfully
-║ 👨‍💻 Developer: Dave
-║ 📦 Version: 2.0.0
-║ 📱 Owner Number: ${botNumber}
-║ ⏰ Connected at: ${new Date().toLocaleString()}
+║ Bot connected successfully
+║ Developer: Dave
+║ Version: 2.0.0
+║ Owner Number: ${botNumber}
+║ Connected at: ${new Date().toLocaleString()}
 ╚═══════════════════════
 `;
           await venom.sendMessage(ownerJid, { text: message });
@@ -242,23 +291,20 @@ async function startvenom() {
     }
   });
 
-  // STATUS UPDATE HANDLER - SEPARATE FROM REGULAR MESSAGES
+  // STATUS UPDATE HANDLER
   venom.ev.on('messages.upsert', async ({ messages }) => {
     try {
         const mek = messages[0];
         if (!mek || !mek.key) return;
 
-        // Only status updates
         if (mek.key.remoteJid !== 'status@broadcast') return;
-        if (mek.key.participant === venom.user.id) return; // ignore own status
+        if (mek.key.participant === venom.user.id) return;
 
-        // Auto-view status (default ON)
         if (global.settings.autoviewstatus !== false) {
             await venom.readMessages([mek.key]);
-            console.log('👀 Status viewed from', mek.key.participant);
+            console.log('Status viewed from', mek.key.participant);
         }
 
-        // Auto-react status
         if (global.settings.autoreactstatus) {
             const emojis = global.settings.statusReactEmojis || ["💙","❤️","🌚","😍","✅"];
             const emoji = emojis[Math.floor(Math.random() * emojis.length)];
@@ -268,7 +314,7 @@ async function startvenom() {
                 { react: { text: emoji, key: mek.key } },
                 { statusJidList: [mek.key.participant] }
             );
-            console.log('🎭 Status reacted with:', emoji);
+            console.log('Status reacted with:', emoji);
         }
 
     } catch (err) {
@@ -336,74 +382,58 @@ async function startvenom() {
     await venom.sendPresenceUpdate("composing", from).catch(console.error);
   }
 
-  // REGULAR MESSAGE HANDLER (NOT STATUS UPDATES)
+  // GROUP STATS HANDLER
+  venom.ev.on("messages.upsert", async ({ messages }) => {
+    const m = messages[0];
+    if (!m?.message) return;
+    if (m.key.fromMe) return;
+
+    m.chat = m.key.remoteJid;
+    const isGroup = m.chat.endsWith("@g.us");
+    const senderId = m.key.participant || m.sender || m.chat;
+    const pushname = m.pushName || "Unknown";
+
+    if (!isGroup) return;
+
+    // Initialize group if not exist
+    if (!groupStats[m.chat]) {
+      groupStats[m.chat] = {
+        groupName: m.chat.split("@")[0],
+        totalMessages: 0,
+        members: {}
+      };
+    }
+
+    const groupData = groupStats[m.chat];
+
+    // Initialize user if not exist
+    if (!groupData.members[senderId]) {
+      groupData.members[senderId] = {
+        name: pushname,
+        messages: 0,
+        lastMessage: null
+      };
+    }
+
+    // Increment counters
+    groupData.totalMessages++;
+    groupData.members[senderId].messages++;
+    groupData.members[senderId].lastMessage = new Date().toISOString();
+
+    saveStats();
+  });
+
+  // REGULAR MESSAGE HANDLER (COMMANDS)
   venom.ev.on('messages.upsert', async ({ messages }) => {
     const m = messages[0];
     if (!m.message) return;
 
-    // Skip status messages - they're handled by the separate status handler above
     if (m.key.remoteJid === 'status@broadcast') return;
 
     try {
       await autoReadPrivate(m);
       await autoRecordPrivate(m);
       await autoTypingPrivate(m);
-
-      if (m?.message && !m.key.fromMe) {
-        const chat = m.key.remoteJid;
-        const isGroup = chat.endsWith("@g.us");
-
-        if (isGroup) {
-          const senderId = m.key.participant || m.sender || chat;
-          const pushname = m.pushName || "Unknown";
-
-          const statsPath = path.join(__dirname, "davelib/groupStats.json");
-
-          if (!fs.existsSync(statsPath)) {
-            fs.writeFileSync(statsPath, JSON.stringify({}, null, 2));
-          }
-
-          let groupStats = {};
-          try {
-            const data = fs.readFileSync(statsPath, "utf8");
-            groupStats = JSON.parse(data || "{}");
-          } catch (err) {
-            console.error("Failed to read groupStats.json:", err);
-            groupStats = {};
-          }
-
-          if (!groupStats[chat]) {
-            groupStats[chat] = {
-              groupName: chat.split("@")[0],
-              totalMessages: 0,
-              members: {}
-            };
-          }
-
-          const groupData = groupStats[chat];
-
-          if (!groupData.members[senderId]) {
-            groupData.members[senderId] = {
-              name: pushname,
-              messages: 0,
-              lastMessage: null
-            };
-          }
-
-          groupData.totalMessages++;
-          groupData.members[senderId].messages++;
-          groupData.members[senderId].lastMessage = new Date().toISOString();
-
-          if (global.statsSaveTimeout) clearTimeout(global.statsSaveTimeout);
-          global.statsSaveTimeout = setTimeout(() => {
-            try {
-              fs.writeFileSync(statsPath, JSON.stringify(groupStats, null, 2));
-            } catch (err) {
-              console.error("Failed to save group stats:", err);
-            }
-          }, 5000);
-        }
-      }
 
       // Command handling with cooldown
       const from = m.key.remoteJid;
@@ -442,14 +472,12 @@ async function startvenom() {
       if (global.userCooldowns[userKey]) {
         const lastUserCmd = global.userCooldowns[userKey];
         if (now - lastUserCmd < 2000) {
-          return; // User is on cooldown
+          return;
         }
       }
 
-      // Update user cooldown
       global.userCooldowns[userKey] = now;
 
-      // Add 1 second delay before processing command
       await delay(1000);
 
       const groupMeta = isGroup ? await venom.groupMetadata(from).catch(() => null) : null;
@@ -465,7 +493,6 @@ async function startvenom() {
         type: Object.keys(m.message)[0],
         quoted: m.message?.extendedTextMessage?.contextInfo?.quotedMessage || null,
         reply: async (text) => {
-          // Add 500ms delay before sending reply
           await delay(500);
           return venom.sendMessage(from, { text }, { quoted: m });
         }
@@ -478,116 +505,111 @@ async function startvenom() {
     }
   });
 
-  venom.getName = async (jid) => {
+  // WELCOME MESSAGE HANDLER
+  venom.ev.on('group-participants.update', async (update) => {
     try {
-      if (!jid) return 'Unknown';
-      const contact = (venom.contacts && venom.contacts[jid]) || (venom.store && venom.store.contacts && venom.store.contacts[jid]);
-      if (contact) return contact.vname || contact.name || contact.notify || jid.split('@')[0];
+      const path = './davelib/welcome.json';
+      const { id, participants, action } = update;
 
-      if (typeof venom.onWhatsApp === 'function') {
-        const info = await venom.onWhatsApp(jid).catch(()=>null);
-        if (Array.isArray(info) && info[0] && info[0].notify) return info[0].notify;
+      const groupMetadata = await venom.groupMetadata(id);
+      const groupName = groupMetadata.subject;
+
+      let toggleData = {};
+      if (fs.existsSync(path)) toggleData = JSON.parse(fs.readFileSync(path));
+      if (!toggleData[id]) return;
+
+      for (const user of participants) {
+        if (action === 'add') {
+          const ppUrl = await venom
+            .profilePictureUrl(user, 'image')
+            .catch(() => 'https://files.catbox.moe/xr70w7.jpg');
+
+          const name = await venom.getName(user);
+
+          const welcomeMessage = `
+╔═══════════════════════
+║      WELCOME!
+╠═══════════════════════
+║ Name: ${name}
+║ User: @${user.split('@')[0]}
+║ Group: ${groupName}
+║ Joined: ${new Date().toLocaleString()}
+║ Total Members: ${groupMetadata.participants.length}
+╚═══════════════════════
+          `.trim();
+
+          await venom.sendMessage(id, {
+            image: { url: ppUrl },
+            caption: welcomeMessage,
+            contextInfo: { mentionedJid: [user] }
+          });
+        }
       }
-
-      return jid.split('@')[0];
-    } catch (e) {
-      return jid.split('@')[0];
+    } catch (err) {
+      console.error('Welcome Error:', err);
     }
-  };
+  });
 
+  // GOODBYE MESSAGE HANDLER
+  venom.ev.on('group-participants.update', async (update) => {
+    try {
+      const path = './davelib/goodbye.json';
+      const { id, participants, action } = update;
+
+      const groupMetadata = await venom.groupMetadata(id);
+      const groupName = groupMetadata.subject;
+      let toggleData = {};
+      if (fs.existsSync(path)) toggleData = JSON.parse(fs.readFileSync(path));
+      if (!toggleData[id]) return;
+
+      for (const user of participants) {
+        if (action === 'remove') {
+          const ppUrl = await venom
+            .profilePictureUrl(user, 'image')
+            .catch(() => 'https://files.catbox.moe/xr70w7.jpg');
+
+          const name = await venom.getName(user);
+
+          const goodbyeMessage = `
+╔═══════════════════════
+║      GOODBYE!
+╠═══════════════════════
+║ Name: ${name}
+║ User: @${user.split('@')[0]}
+║ Group: ${groupName}
+║ Left: ${new Date().toLocaleString()}
+║ Members Left: ${groupMetadata.participants.length}
+╚═══════════════════════
+          `.trim();
+
+          await venom.sendMessage(id, {
+            image: { url: ppUrl },
+            caption: goodbyeMessage,
+            contextInfo: { mentionedJid: [user] }
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Goodbye Error:', err);
+    }
+  });
+
+  // ANTIPROMOTE/ANTIDEMOTE HANDLER
   venom.ev.on('group-participants.update', async (update) => {
     try {
       const { id, participants, action } = update;
       const chatId = id;
       const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
 
-      // Load Settings
       const settings = loadSettings();
 
-      // Welcome messages with frame
-      if (action === 'add') {
-        const welcomePath = './davelib/welcome.json';
-        let welcomeData = {};
-        if (fs.existsSync(welcomePath)) welcomeData = JSON.parse(fs.readFileSync(welcomePath));
-
-        if (welcomeData[id]) {
-          const groupMetadata = await venom.groupMetadata(id);
-          const groupName = groupMetadata.subject;
-
-          for (const user of participants) {
-            const ppUrl = await venom
-              .profilePictureUrl(user, 'image')
-              .catch(() => 'https://files.catbox.moe/xr70w7.jpg');
-
-            const name = (await venom.onWhatsApp(user))[0]?.notify || user.split('@')[0];
-
-            const welcomeMessage = `
-╔═══════════════════════
-║      🎉 WELCOME!
-╠═══════════════════════
-║ 👤 Name: ${name}
-║ 📱 User: @${user.split('@')[0]}
-║ 👥 Group: ${groupName}
-║ 🕒 Joined: ${new Date().toLocaleString()}
-║ 🎯 Total Members: ${groupMetadata.participants.length}
-╚═══════════════════════
-            `.trim();
-
-            await venom.sendMessage(id, {
-              image: { url: ppUrl },
-              caption: welcomeMessage,
-              contextInfo: { mentionedJid: [user] }
-            });
-          }
-        }
-      }
-
-      // Goodbye messages with frame
-      if (action === 'remove') {
-        const goodbyePath = './davelib/goodbye.json';
-        let goodbyeData = {};
-        if (fs.existsSync(goodbyePath)) goodbyeData = JSON.parse(fs.readFileSync(goodbyePath));
-
-        if (goodbyeData[id]) {
-          const groupMetadata = await venom.groupMetadata(id);
-          const groupName = groupMetadata.subject;
-
-          for (const user of participants) {
-            const ppUrl = await venom
-              .profilePictureUrl(user, 'image')
-              .catch(() => 'https://files.catbox.moe/xr70w7.jpg');
-
-            const name = (await venom.onWhatsApp(user))[0]?.notify || user.split('@')[0];
-
-            const goodbyeMessage = `
-╔═══════════════════════
-║      👋 GOODBYE!
-╠═══════════════════════
-║ 👤 Name: ${name}
-║ 📱 User: @${user.split('@')[0]}
-║ 👥 Group: ${groupName}
-║ 🕒 Left: ${new Date().toLocaleString()}
-║ 🎯 Members Left: ${groupMetadata.participants.length}
-╚═══════════════════════
-            `.trim();
-
-            await venom.sendMessage(id, {
-              image: { url: ppUrl },
-              caption: goodbyeMessage,
-              contextInfo: { mentionedJid: [user] }
-            });
-          }
-        }
-      }
-
-      // Handle AntiPromote
       if (action === 'promote' && settings.antipromote?.[chatId]?.enabled) {
         const groupSettings = settings.antipromote[chatId];
 
         for (const user of participants) {
           if (user !== botNumber) {
             await venom.sendMessage(chatId, {
-              text: `🚫 *Promotion Blocked!*\nUser: @${user.split('@')[0]}\nMode: ${groupSettings.mode.toUpperCase()}`,
+              text: `Promotion Blocked! User: @${user.split('@')[0]} Mode: ${groupSettings.mode.toUpperCase()}`,
               mentions: [user],
             });
 
@@ -600,14 +622,13 @@ async function startvenom() {
         }
       }
 
-      // Handle AntiDemote
       if (action === 'demote' && settings.antidemote?.[chatId]?.enabled) {
         const groupSettings = settings.antidemote[chatId];
 
         for (const user of participants) {
           if (user !== botNumber) {
             await venom.sendMessage(chatId, {
-              text: `🚫 *Demotion Blocked!*\nUser: @${user.split('@')[0]}\nMode: ${groupSettings.mode.toUpperCase()}`,
+              text: `Demotion Blocked! User: @${user.split('@')[0]} Mode: ${groupSettings.mode.toUpperCase()}`,
               mentions: [user],
             });
 
@@ -633,7 +654,7 @@ async function tylor() {
     await fs.promises.mkdir(sessionDir, { recursive: true });
 
     if (fs.existsSync(credsPath)) {
-      console.log(chalk.yellowBright("✅ Existing session found. Starting bot without pairing..."));
+      console.log(chalk.yellowBright("Existing session found. Starting bot without pairing..."));
       await startvenom();
       return;
     }
@@ -641,19 +662,19 @@ async function tylor() {
     if (config.SESSION_ID && config.SESSION_ID.includes("DAVE-AI:~")) {
       const ok = await saveSessionFromConfig();
       if (ok) {
-        console.log(chalk.greenBright("✅ Session ID loaded and saved successfully. Starting bot..."));
+        console.log(chalk.greenBright("Session ID loaded and saved successfully. Starting bot..."));
         await startvenom();
         return;
       } else {
-        console.log(chalk.redBright("⚠️ SESSION_ID found but failed to save it. Falling back to pairing..."));
+        console.log(chalk.redBright("SESSION_ID found but failed to save it. Falling back to pairing..."));
       }
     }
 
-    console.log(chalk.redBright("⚠️ No valid session found! You'll need to pair a new number."));
+    console.log(chalk.redBright("No valid session found! You will need to pair a new number."));
     await startvenom();
 
   } catch (error) {
-    console.error(chalk.redBright("❌ Error initializing session:"), error);
+    console.error(chalk.redBright("Error initializing session:"), error);
   }
 }
 
