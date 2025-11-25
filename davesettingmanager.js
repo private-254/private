@@ -20,8 +20,8 @@ function loadSettings() {
       autoviewstatus: true,                 // Auto-view status (default ON)
       autoreactstatus: true,                // Auto-react to status
       statusReactEmojis: ["💙","❤️","🌚","😍","✅"],
-      
-      // ADD THESE LINES - Store settings
+
+      // ---------------- Store settings ----------------
       maxStoreMessages: 20,                 // Maximum messages to store
       storeWriteInterval: 10000,            // 10 seconds default
 
@@ -33,7 +33,6 @@ function loadSettings() {
 
       // ---------------- Public/private mode ----------------
       mode: "public",                       // Default public
-
       onlygroup: false,
       onlypc: false,
 
@@ -57,13 +56,13 @@ function loadSettings() {
       warnings: { enabled: true, maxWarnings: 3, chats: {} },
 
       // ---------------- Bot info ----------------
-      botName: "Dave AI",
-      ownername: "Dev-dave",
+      botName: "VENOM XMD",
+      ownerName: "Gifted-dave",    // <-- Updated to match menuSettings.json
       owner: ["254104260236"]
     }, null, 2));
   }
 
-  return JSON.parse(fs.readFileSync(settingsPath));
+  return JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
 }
 
 function saveSettings(settings) {
