@@ -221,6 +221,51 @@ ${isGroupMsg ? `🏠 GROUP: ${groupName}` : ""}
         }
     }
 
+// ==================== ANTI-LINK SYSTEM ==================== //
+if (global.settings.antilinkgc && global.settings.antilinkgc.enabled) {
+    if (body.match(`chat.whatsapp.com`)) {
+        const bvl = `GC Link Detected\n\nAdmin has sent a gc link, admin is free to send any link`
+        if (isAdmin) return reply(bvl)
+        if (m.key.fromMe) return reply(bvl)
+        if (isOwner) return reply(bvl)
+
+        await venom.sendMessage(from, {
+            delete: {
+                remoteJid: from,
+                fromMe: false,
+                id: m.key.id,
+                participant: m.key.participant
+            }
+        })
+        await venom.sendMessage(from, {
+            text: `GC Link Detected\n\n@${senderJid.split("@")[0]} has sent a link and successfully deleted`, 
+            contextInfo: { mentionedJid: [senderJid] }
+        }, { quoted: m })
+    }
+}
+
+if (global.settings.antilink && global.settings.antilink.enabled) {
+    if (body.match('http') && body.match('https')) {
+        const bvl = `Link Detected\n\nAdmin has sent a link, admin is free to send any link`
+        if (isAdmin) return reply(bvl)
+        if (m.key.fromMe) return reply(bvl)
+        if (isOwner) return reply(bvl)
+
+        await venom.sendMessage(from, {
+            delete: {
+                remoteJid: from,
+                fromMe: false,
+                id: m.key.id,
+                participant: m.key.participant
+            }
+        })
+        await venom.sendMessage(from, {
+            text: `Link Detected\n\n@${senderJid.split("@")[0]} has sent a link and successfully deleted`, 
+            contextInfo: { mentionedJid: [senderJid] }
+        }, { quoted: m })
+    }
+}
+
     // REDUCED: Auto-react with fewer emojis
     if (global.settings?.areact?.enabled && global.settings.areact.chats[m.chat]) {
     const emojis = global.settings.areact.emojis || ["😂","🔥","😎","👍","💀","❤️","🤖","🥵","🙌","💯"];
@@ -384,6 +429,104 @@ case 'playdoc': {
     }
 }
 break;
+
+    case 'yts': case 'ytsearch': {
+                if (!text) return reply(`Example : ${prefix + command} faded`)
+                let yts = require("yt-search")
+                let search = await yts(text)
+                let teks = 'YouTube Search\n\n Result From '+text+'\n\n'
+                let no = 1
+                for (let i of search.all) {
+                    teks += `❤️ No : ${no++}\n❤️Type : ${i.type}\n ❤️Video ID : ${i.videoId}\n❤️ Title : ${i.title}\n❤️ Views : ${i.views}\n❤️ Duration : ${i.timestamp}\n❤️ Uploaded : ${i.ago}\n❤️ Url : ${i.url}\n\n─────────────────\n\n`
+                }
+                venom.sendMessage(m.chat, { image: { url: search.all[0].thumbnail },  caption: teks }, { quoted: m })
+            }
+            break  
+
+        case 'shorturl': {
+const zlib = require('zlib');
+const qs = require('querystring');      
+const kualatshort = async (url) => {
+  const res = await axios.post(
+    'https://kua.lat/shorten',
+    qs.stringify({ url }),
+    {
+      responseType: 'arraybuffer',
+      headers: {
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'id-ID,id;q=0.9,en-AU;q=0.8,en;q=0.7,en-US;q=0.6',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Origin': 'https://kua.lat',
+        'Referer': 'https://kua.lat/',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    }
+  )
+
+  let decoded
+  const encoding = res.headers['content-encoding']
+
+  if (encoding === 'br') {
+    decoded = zlib.brotliDecompressSync(res.data)
+  } else if (encoding === 'gzip') {
+    decoded = zlib.gunzipSync(res.data)
+  } else if (encoding === 'deflate') {
+    decoded = zlib.inflateSync(res.data)
+  } else {
+    decoded = res.data
+  }
+
+  return JSON.parse(decoded.toString())
+}
+
+    try {
+      if (!text) return m.reply('Use : .shorturl https://example.com')
+
+      const result = await kualatshort(text)
+
+      if (!result?.data?.shorturl) {
+        return m.reply('failed to create url.')
+      }
+
+      reply(`🔗 *Short URL:*\n${result.data.shorturl}`)
+    } catch (e) {
+      console.error('[SHORTURL] Error:', e)
+      reply(`Error: ${e.message}`)
+    }
+    break
+  }
+
+case 'checktime':
+case 'time': {
+    try {
+        if (!text) return reply("Please provide a city or country name to check the local time.");
+        await reply(`Checking local time for ${text}...`);
+        const tzRes = await fetch(`https://worldtimeapi.org/api/timezone`);
+        const timezones = await tzRes.json();
+        const match = timezones.find(tz => tz.toLowerCase().includes(text.toLowerCase()));
+        if (!match) return reply(`Could not find timezone for ${text}.`);
+        const res = await fetch(`https://worldtimeapi.org/api/timezone/${match}`);
+        const data = await res.json();
+        const datetime = new Date(data.datetime);
+        const hours = datetime.getHours();
+        const greeting = hours < 12 ? "Good Morning" : hours < 18 ? "Good Afternoon" : "Good Evening";
+        const timeText = `
+Local Time in ${text}
+${greeting}
+Timezone: ${data.timezone}
+Time: ${datetime.toLocaleTimeString()}
+Date: ${datetime.toDateString()}
+Uptime: ${formatUptime(process.uptime())}`;
+        await reply(timeText);
+    } catch (e) {
+        console.error("checktime error:", e);
+        reply("Unable to fetch time for that city.");
+    }
+}
+break
+
 
 // ================= TAGALL =================
 case 'tagall':
