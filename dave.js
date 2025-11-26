@@ -33,22 +33,27 @@ function formatUptime(seconds) {
 }
 
 function createFakeContact(message) {
+    const sender = message.key.participant || message.key.remoteJid;
+    const number = sender.split('@')[0];
+    const name = message.pushName || "User";
+    
     return {
         key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "status@broadcast",
             fromMe: false,
+            participant: "0@s.whatsapp.net", 
+            remoteJid: "status@broadcast",
             id: "VENOM-XMD"
         },
         message: {
             contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:VENOM XMD\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+                displayName: `𝘿𝙖𝙫𝙚𝘼𝙄`,
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:;${name};;;\nFN:${name}\nitem1.TEL;waid=${number}:${number}\nitem1.X-ABLabel:Phone\nEND:VCARD`,
+                jpegThumbnail: { url: 'https://files.catbox.moe/yqbio5.jpg' }
             }
         },
         participant: "0@s.whatsapp.net"
     };
 }
-
 const reaction = async (venom, m, emoji) => {
     try {
         return await venom.sendMessage(m.chat, { react: { text: emoji, key: m.key } });
