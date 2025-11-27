@@ -87,27 +87,34 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
     };
 
     // ===== CHAT INFO =====
-const from = venom.decodeJid(m.key.remoteJid);
-const isGroup = from.endsWith("@g.us");
+    const from = venom.decodeJid(m.key.remoteJid);
+    const isGroup = from.endsWith("@g.us");
 
-// ===== SENDER INFO (FIXED) =====
-let senderJid;
+    // ===== SENDER INFO (FINAL FIX) =====
+    let senderJid;
 
-if (isGroup) {
-    senderJid = venom.decodeJid(m.key.participant);
-} else {
-    senderJid = venom.decodeJid(m.key.fromMe ? venom.user.id : m.key.remoteJid);
-}
+    if (isGroup) {
+        senderJid = venom.decodeJid(m.key.participant);
+    } else {
+        senderJid = venom.decodeJid(m.key.fromMe ? venom.user.id : m.key.remoteJid);
+    }
 
-// ===== BOT NUMBER =====
-const botNumber = venom.decodeJid(venom.user.id);
+    // ===== BOT NUMBER =====
+    const botNumber = venom.decodeJid(venom.user.id);
 
-// ===== OWNER CHECK =====
-const isOwner = senderJid === botNumber;
-    
+    // ===== OWNER CHECK (FINAL + WORKING) =====
+    // Works because index.js now sets:
+    // global.owner = [`${botNumber}@s.whatsapp.net`];
+    const isOwner =
+        senderJid === botNumber ||                       // bot sending message
+        (global.owner && global.owner.includes(senderJid)); // owner JID from index.js
+
     // ===== GROUP ADMIN CHECKS =====
     const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
     const isBotAdmin = isGroup ? groupAdmins.includes(botNumber) : false;
+
+
+
 
     
     // ============ REPLY HELPERS ============
