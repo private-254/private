@@ -77,29 +77,45 @@ function jidDecode(jid) {
 // =============== MAIN FUNCTION ===============
 module.exports = async function handleCommand(venom, m, command, groupAdmins, isBotAdmins, groupMeta, config, prefix) {
 
-    // ======= Safe JID decoding =======
-    venom.decodeJid = (jid) => {
-        if (!jid) return jid;
-        if (/:\d+@/gi.test(jid)) {
-            let decode = jidDecode(jid) || {};
-            return decode.user && decode.server ? `${decode.user}@${decode.server}` : jid;
-        } else return jid;
-    };
-    
-    const from = venom.decodeJid(m.key.remoteJid);
-    const sender = m.key.participant || m.key.remoteJid;
-    const participant = venom.decodeJid(m.key.participant || from);
-    const pushname = m.pushName || "Unknown User";
-    const chatType = from.endsWith('@g.us') ? 'Group' : 'Private';
-    const chatName = chatType === 'Group' ? (groupMeta?.subject || 'Unknown Group') : pushname;
 
-    // ============ SIMPLE OWNER & ADMIN CHECKS ============
-    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
-    const senderJid = venom.decodeJid(m.key.participant || m.key.remoteJid);
-    const isOwner = senderJid === botNumber;
-    const isGroup = from.endsWith('@g.us');
-    const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
-    const isBotAdmin = isBotAdmins;
+
+// ======= FIXED SENDER / OWNER DETECTION =======
+venom.decodeJid = (jid) => {
+    if (!jid) return jid;
+    if (/:\d+@/gi.test(jid)) {
+        let decode = jidDecode(jid) || {};
+        return decode.user && decode.server ? `${decode.user}@${decode.server}` : jid;
+    } else return jid;
+};
+
+const from = venom.decodeJid(m.key.remoteJid);
+
+// FIXED: real sender detection
+let senderJid;
+if (m.key.fromMe) {
+    senderJid = venom.decodeJid(venom.user.id);   // YOU are the sender
+} else {
+    senderJid = venom.decodeJid(m.key.participant || m.key.remoteJid);
+}
+
+const participant = senderJid;
+const pushname = m.pushName || "Unknown User";
+const chatType = from.endsWith('@g.us') ? 'Group' : 'Private';
+const chatName = chatType === 'Group' ? (groupMeta?.subject || 'Unknown Group') : pushname;
+
+// ============ OWNER & ADMIN FIX ============
+
+// Normalize bot number
+const botNumber = venom.decodeJid(venom.user.id);
+
+// Owner list support (in case you add global.owner)
+const isOwner = [botNumber, ...(global.owner || []).map(num => num.replace(/[^0-9]/g, '') + "@s.whatsapp.net")]
+    .includes(senderJid);
+
+// group checks
+const isGroup = from.endsWith('@g.us');
+const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
+const isBotAdmin = isBotAdmins;
 
     // ============ REPLY HELPERS ============
     const reply = (text) => {
