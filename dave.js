@@ -1243,6 +1243,7 @@ case 'fact': {
 
 
 // =================LINKGC=================
+case 'link':
 case 'linkgc': {
     if (!m.isGroup) return reply("This command only works in groups.");
     try {
@@ -4689,9 +4690,6 @@ case 'suggest': {
         reply(" Failed to send request.");
     }
     break;
-}
-
-;
 }
 
 // =================LINKGC=================
