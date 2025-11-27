@@ -87,29 +87,24 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
     };
 
     // ===== CHAT INFO =====
-    const from = venom.decodeJid(m.key.remoteJid);
-    const isGroup = from.endsWith("@g.us");
+const from = venom.decodeJid(m.key.remoteJid);
+const isGroup = from.endsWith("@g.us");
 
-    // ===== SENDER INFO =====
-    let senderJid;
-    if (m.key.fromMe) {
-        senderJid = venom.decodeJid(venom.user.id);  // You are the sender
-    } else {
-        senderJid = venom.decodeJid(m.key.participant || from);
-    }
+// ===== SENDER INFO (FIXED) =====
+let senderJid;
 
-    const participant = senderJid;
-    const pushname = m.pushName || "Unknown User";
-    const chatType = isGroup ? "Group" : "Private";
-    const chatName = isGroup ? (groupMeta?.subject || "Unknown Group") : pushname;
+if (isGroup) {
+    senderJid = venom.decodeJid(m.key.participant);
+} else {
+    senderJid = venom.decodeJid(m.key.fromMe ? venom.user.id : m.key.remoteJid);
+}
 
-    // ===== BOT & OWNER CHECKS =====
-    const botNumber = venom.decodeJid(venom.user.id);
+// ===== BOT NUMBER =====
+const botNumber = venom.decodeJid(venom.user.id);
 
-    // Dynamic owner system:
-    // Whoever logged in (paired the bot) is automatically the owner.
-    const isOwner = senderJid === botNumber;
-
+// ===== OWNER CHECK =====
+const isOwner = senderJid === botNumber;
+    
     // ===== GROUP ADMIN CHECKS =====
     const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
     const isBotAdmin = isGroup ? groupAdmins.includes(botNumber) : false;
