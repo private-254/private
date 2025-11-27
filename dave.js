@@ -83,39 +83,38 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
 venom.decodeJid = (jid) => {
     if (!jid) return jid;
     if (/:\d+@/gi.test(jid)) {
-        let decode = jidDecode(jid) || {};
+        const decode = jidDecode(jid) || {};
         return decode.user && decode.server ? `${decode.user}@${decode.server}` : jid;
-    } else return jid;
+    }
+    return jid;
 };
 
+// ===== CHAT INFO =====
 const from = venom.decodeJid(m.key.remoteJid);
+const isGroup = from.endsWith("@g.us");
 
-// FIXED: real sender detection
+// ===== SENDER INFO =====
 let senderJid;
 if (m.key.fromMe) {
-    senderJid = venom.decodeJid(venom.user.id);   // YOU are the sender
+    senderJid = venom.decodeJid(venom.user.id); // you are the sender
 } else {
-    senderJid = venom.decodeJid(m.key.participant || m.key.remoteJid);
+    senderJid = venom.decodeJid(m.key.participant || from);
 }
 
 const participant = senderJid;
 const pushname = m.pushName || "Unknown User";
-const chatType = from.endsWith('@g.us') ? 'Group' : 'Private';
-const chatName = chatType === 'Group' ? (groupMeta?.subject || 'Unknown Group') : pushname;
+const chatType = isGroup ? "Group" : "Private";
+const chatName = isGroup ? (groupMeta?.subject || "Unknown Group") : pushname;
 
-// ============ OWNER & ADMIN FIX ============
+// ===== BOT & OWNER CHECKS =====
+const botNumber = venom.decodeJid(venom.user.id); // normalize bot number
 
-// Normalize bot number
-const botNumber = venom.decodeJid(venom.user.id);
-
-// Owner list support (in case you add global.owner)
 const isOwner = [botNumber, ...(global.owner || []).map(num => num.replace(/[^0-9]/g, '') + "@s.whatsapp.net")]
     .includes(senderJid);
 
-// group checks
-const isGroup = from.endsWith('@g.us');
+// ===== GROUP ADMIN CHECKS =====
 const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
-const isBotAdmin = isBotAdmins;
+const isBotAdmin = isGroup ? groupAdmins.includes(botNumber) : false;
 
     // ============ REPLY HELPERS ============
     const reply = (text) => {
