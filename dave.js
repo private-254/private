@@ -6960,9 +6960,9 @@ case 'toimage': {
 }
 
 
-case whatsong':
+case 'whatsong':
 case 'whatssong':
-case Shazam':
+case 'Shazam':
 case 'shazam': {
   try {
     const axios = require('axios');
