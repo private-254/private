@@ -74,7 +74,7 @@ function jidDecode(jid) {
     return { user, server };
 }
 
-module.exports = async function handleCommand(venom, m, command, groupAdmins, isBotAdmins, groupMeta, config, prefix) {
+ module.exports = async function handleCommand(venom, m, command, groupAdmins, isBotAdmins, groupMeta, config, prefix) {
 
     // ======= FIXED SENDER / OWNER DETECTION =======
     venom.decodeJid = (jid) => {
@@ -90,32 +90,25 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
     const from = venom.decodeJid(m.key.remoteJid);
     const isGroup = from.endsWith("@g.us");
 
-    // ===== SENDER INFO (FINAL FIX) =====
-    let senderJid;
-
-    if (isGroup) {
-        senderJid = venom.decodeJid(m.key.participant);
-    } else {
-        senderJid = venom.decodeJid(m.key.fromMe ? venom.user.id : m.key.remoteJid);
-    }
+    // ===== SENDER INFO (FINAL) =====
+    const senderJid = isGroup
+        ? venom.decodeJid(m.key.participant)
+        : venom.decodeJid(m.key.fromMe ? venom.user.id : m.key.remoteJid);
 
     // ===== BOT NUMBER =====
     const botNumber = venom.decodeJid(venom.user.id);
 
-    // ===== OWNER CHECK (FINAL + WORKING) =====
-    // Works because index.js now sets:
-    // global.owner = [`${botNumber}@s.whatsapp.net`];
-    const isOwner =
-        senderJid === botNumber ||                       // bot sending message
-        (global.owner && global.owner.includes(senderJid)); // owner JID from index.js
+    // ===== OWNER CHECK (FINAL WORKING) =====
+    // Checks if sender is bot itself OR listed in global.owner (set dynamically in index.js)
+    const isOwner = 
+        senderJid === botNumber || 
+        (global.owner && global.owner.some(ownerId => ownerId === senderJid.split("@")[0]));
 
     // ===== GROUP ADMIN CHECKS =====
     const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
     const isBotAdmin = isGroup ? groupAdmins.includes(botNumber) : false;
 
-
-
-
+    
     
     // ============ REPLY HELPERS ============
     const reply = (text) => {
