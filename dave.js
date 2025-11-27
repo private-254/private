@@ -462,6 +462,87 @@ case 'antilink': {
   break;
 }
 
+// ==================== REJECT ==================== //
+case 'reject': {
+    try {
+        if (!isGroup) return reply("❌ This command only works in groups!");
+        if (!isOwner) return reply("❌ This command is for bot owner only!");
+        if (!isBotAdmin) return reply("❌ I must be admin to reject join requests!");
+
+        // Fetch pending join requests
+        let requestList;
+        try {
+            requestList = await venom.groupRequestParticipantsList(from);
+        } catch (err) {
+            console.error(err);
+            return reply("❌ Failed to fetch pending requests.");
+        }
+
+        if (!requestList || requestList.length === 0) {
+            return reply("ℹ️ No pending requests detected.");
+        }
+
+        // Reject each participant
+        for (const participant of requestList) {
+            try {
+                await venom.groupRequestParticipantsUpdate(
+                    from,
+                    [participant.jid],
+                    "reject"
+                );
+            } catch (err) {
+                console.error(`Failed to reject ${participant.jid}:`, err);
+            }
+        }
+
+        reply("✅ All pending requests have been rejected!");
+    } catch (err) {
+        console.error(err);
+        reply("❌ An error occurred while rejecting requests.");
+    }
+    break;
+}
+
+// ==================== APPROVE ==================== //
+case 'approve': {
+    try {
+        if (!isGroup) return reply("❌ This command only works in groups!");
+        if (!isOwner) return reply("❌ This command is for bot owner only!");
+        if (!isBotAdmin) return reply("❌ I must be admin to approve join requests!");
+
+        // Fetch pending join requests
+        let requestList;
+        try {
+            requestList = await venom.groupRequestParticipantsList(from);
+        } catch (err) {
+            console.error(err);
+            return reply("❌ Failed to fetch pending requests.");
+        }
+
+        if (!requestList || requestList.length === 0) {
+            return reply("ℹ️ No pending requests detected.");
+        }
+
+        // Approve each participant
+        for (const participant of requestList) {
+            try {
+                await venom.groupRequestParticipantsUpdate(
+                    from,
+                    [participant.jid],
+                    "approve"
+                );
+            } catch (err) {
+                console.error(`Failed to approve ${participant.jid}:`, err);
+            }
+        }
+
+        reply("✅ All pending requests have been approved!");
+    } catch (err) {
+        console.error(err);
+        reply("❌ An error occurred while approving requests.");
+    }
+    break;
+}
 
 case 'clearchat':
 case 'clear': {
@@ -501,6 +582,7 @@ case 'clear': {
     }
     break;
 }
+
 case 'playdoc': {
     try {
         const tempDir = path.join(__dirname, "temp");
@@ -686,6 +768,7 @@ case 'everyone': {
         { quoted: m }
     );
 }
+
 break;
 case 'private':
 case 'self': {
@@ -1159,37 +1242,6 @@ case 'fact': {
 }
 
 
-case 'reject': {
-    if (!m.isGroup) return reply(mess.group);
-    if (!isOwner) return reply("This feature is only for bot owner.");
-
-    let responseList;
-    try {
-        responseList = await venom.groupRequestParticipantsList(m.chat);
-    } catch (err) {
-        console.error(err);
-        return reply("Failed to fetch pending requests.");
-    }
-
-    if (!responseList || responseList.length === 0) {
-        return reply("No pending requests detected.");
-    }
-
-    for (const participan of responseList) {
-        try {
-            await venom.groupRequestParticipantsUpdate(
-                m.chat,
-                [participan.jid],
-                "reject"
-            );
-        } catch (err) {
-            console.error(`Failed to reject ${participan.jid}:`, err);
-        }
-    }
-
-    reply("All pending requests have been rejected!");
-    break;
-}
 
 // =================LINKGC=================
 case 'linkgc': {
@@ -1237,38 +1289,6 @@ Link: ${groupLink}
 }
 break;
 
-// =================APPROVE=================
-case 'approve': {
-    if (!m.isGroup) return reply(mess.group);
-    if (!isOwner) return reply("This feature is only for bot owner only.");
-
-    let responseList;
-    try {
-        responseList = await venom.groupRequestParticipantsList(m.chat);
-    } catch (err) {
-        console.error(err);
-        return reply("Failed to fetch pending requests.");
-    }
-
-    if (!responseList || responseList.length === 0) {
-        return reply("No pending requests detected at the moment!");
-    }
-
-    for (const participan of responseList) {
-        try {
-            await venom.groupRequestParticipantsUpdate(
-                m.chat,
-                [participan.jid],
-                "approve"
-            );
-        } catch (err) {
-            console.error(`Failed to approve ${participan.jid}:`, err);
-        }
-    }
-
-    reply("VENOM BOT has approved all pending requests!");
-    break;
-}
 
 case 'setbotname':
 case 'botname':
@@ -1879,7 +1899,7 @@ case 'help': {
 ┣➤ antidelete
 ┣➤ update
 ┣➤ restart
-┣➤ clearchat
+┣➤ clearchart 
 ┣➤ anticall
 ┣➤ areact
 ┣➤ autoreactstatus
@@ -1951,6 +1971,7 @@ case 'help': {
 ┣➤ igdl2
 ┣➤ fb
 ┣➤ ig
+┣➤TikTok/tt
 ┣➤ video
 ┣➤ ytmp3
 ┣➤ ytmp4
@@ -2000,6 +2021,7 @@ case 'help': {
 
 *╭─「 ꜱᴇᴀʀᴄʜ ᴛᴏᴏʟꜱ 」*
 ┣➤ pinterest
+┣➤Shazam/whatsong
 ┗➤ calc
 
 *╭─「 ᴜᴛɪʟɪᴛɪᴇꜱ 」*
@@ -4670,130 +4692,12 @@ case 'suggest': {
     break;
 }
 
-case 'reject': {
-    if (!m.isGroup) return reply(mess.group);
-    if (!isOwner) return reply("This feature is only for bot owner.");
-
-    let responseList;
-    try {
-        responseList = await venom.groupRequestParticipantsList(m.chat);
-    } catch (err) {
-        console.error(err);
-        return reply("Failed to fetch pending requests.");
-    }
-
-    if (!responseList || responseList.length === 0) {
-        return reply("No pending requests detected.");
-    }
-
-    for (const participan of responseList) {
-        try {
-            await venom.groupRequestParticipantsUpdate(
-                m.chat,
-                [participan.jid],
-                "reject"
-            );
-        } catch (err) {
-            console.error(`Failed to reject ${participan.jid}:`, err);
-        }
-    }
-
-    reply("All pending requests have been rejected!");
-    break;
+;
 }
 
 // =================LINKGC=================
-case 'linkgc': {
-    if (!m.isGroup) return reply("This command only works in groups.");
-    try {
-        const meta = await venom.groupMetadata(m.chat);
 
-        const groupName = meta.subject || "Unknown";
-        const members = meta.participants || [];
-        const totalMembers = members.length;
-
-        const admins = members.filter(p => p.admin !== null);
-        const numAdmins = admins.length;
-
-        const linkCode = await venom.groupInviteCode(m.chat);
-        const groupLink = `https://chat.whatsapp.com/${linkCode}`;
-
-        let pfp;
-        try {
-            pfp = await venom.profilePictureUrl(m.chat, "image");
-        } catch {
-            pfp = null;
-        }
-
-        let caption = `
-Group Information
---------------------------------
-Name: ${groupName}
-Members: ${totalMembers}
-Admins: ${numAdmins}
-Link: ${groupLink}
---------------------------------
-        `.trim();
-
-        if (pfp) {
-            await venom.sendMessage(m.chat, { image: { url: pfp }, caption });
-        } else {
-            await venom.sendMessage(m.chat, { text: caption });
-        }
-
-    } catch (e) {
-        console.log(e);
-        reply("Failed to get group info.");
-    }
-}
-break;
-
-// =================APPROVE=================
-case 'approve': {
-    if (!m.isGroup) return reply(mess.group);
-    if (!isOwner) return reply("This feature is only for bot owner only.");
-
-    let responseList;
-    try {
-        responseList = await venom.groupRequestParticipantsList(m.chat);
-    } catch (err) {
-        console.error(err);
-        return reply("Failed to fetch pending requests.");
-    }
-
-    if (!responseList || responseList.length === 0) {
-        return reply("No pending requests detected at the moment!");
-    }
-
-    for (const participan of responseList) {
-        try {
-            await venom.groupRequestParticipantsUpdate(
-                m.chat,
-                [participan.jid],
-                "approve"
-            );
-        } catch (err) {
-            console.error(`Failed to approve ${participan.jid}:`, err);
-        }
-    }
-
-    reply("VENOM-XMD has approved all pending requests!");
-    break;
-}
-case 'disp-7': {
-    try {
-        if (!isGroup) return reply(" This command only works in groups!");
-        if (!isBotAdmins) return reply(" Bot must be admin in this group!");
-        
-        await venom.groupToggleEphemeral(from, 7 * 24 * 3600);
-        reply(" Disappearing messages successfully turned on for 7 days!");
-    } catch (err) {
-        console.error("Disp-7 Command Error:", err);
-        reply(" Failed to set disappearing messages.");
-    }
-    break;
-}
-
+    
 case 'idch':
 case 'cekidch': {
     try {
@@ -5102,23 +5006,6 @@ case 'rch': {
     break;
 }
 
-case 'clearchat':
-case 'clear': {
-    try {
-        if (!isOwner) return reply(" This command is for owner-only.");
-        
-        await venom.chatModify({ 
-            delete: true, 
-            lastMessages: [{ key: m.key, messageTimestamp: m.messageTimestamp }] 
-        }, from);
-        
-        reply(" Chat successfully cleared!");
-    } catch (err) {
-        console.error("ClearChat Command Error:", err);
-        reply(" Failed to clear chat.");
-    }
-    break;
-}
 
 case 'convertphoto': {
   try {
@@ -5762,7 +5649,7 @@ case 'allmenu': {
 • block
 • clearchat`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " OWNER MANAGEMENT",
@@ -5779,7 +5666,7 @@ case 'allmenu': {
 • disp-off
 • vv`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " GROUP MANAGEMENT",
@@ -5807,7 +5694,7 @@ case 'allmenu': {
 • vcf
 • vcf2`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " ANALYSIS TOOLS",
@@ -5829,7 +5716,7 @@ case 'allmenu': {
 • profile
 • githubstalk`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " MEDIA DOWNLOAD",
@@ -5849,7 +5736,7 @@ case 'allmenu': {
 • instagram
 • gitclone`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " AI & CHATGPT",
@@ -5871,7 +5758,7 @@ case 'allmenu': {
 • faceblur
 • removebg`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " CONVERSION TOOLS",
@@ -5896,7 +5783,7 @@ case 'allmenu': {
 • hdvideo
 • readmore`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " SEARCH TOOLS",
@@ -5919,7 +5806,7 @@ case 'allmenu': {
 • serie-a
 • ligue-1`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " EMAIL & UTILITIES",
@@ -5932,7 +5819,7 @@ case 'allmenu': {
 • viewonce
 • rvo`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " FUN & MEMES",
@@ -5998,7 +5885,7 @@ case 'allmenu': {
 • waifu
 • cat`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " BUG TOOLS",
@@ -6010,7 +5897,7 @@ case 'allmenu': {
 • xios2
 • dave-group`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " TEXT EFFECTS & LOGOS",
@@ -6047,14 +5934,14 @@ case 'allmenu': {
 • royaltext
 • freecreate`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " SPAM & TOOLS",
         desc: `• nglspam
 • sendchat`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " DEVELOPER TOOLS",
@@ -6079,7 +5966,7 @@ case 'allmenu': {
 • copilot
 • vv`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       },
       {
         title: " MAIN MENU",
@@ -6094,7 +5981,7 @@ case 'allmenu': {
 • Quran
 • Bible`,
         button: { text: "𝘿𝙖𝙫𝙚𝘼𝙄", url: "https://youtube.com/@davlodavlo19?si=7pf4DxuDSI142BEW" },
-        image: "https://o.uguu.se/ggDdhmHu.jpg"
+        image: "https://i.imgur.gg/Wgof82G-gemini-2.5-flash-image_Another_one_with_music_theme_but_written_DAVEX_MUSIC_PRO-0.jpg"
       }
     ];
     //  Generate carousel cards with CTA buttons
@@ -7076,55 +6963,9 @@ case 'toimage': {
 }
 
 
-case 'antilink': {
-  try {
-    // Use the groupAdmins and groupMeta that are already passed from your function parameters
-    const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
-    
-    if (!isGroup) return reply("This command only works in groups!");
-    if (!isOwner) return reply("Only the bot owner can toggle antilink!");
-    
-    const option = args[0]?.toLowerCase();
-    const mode = args[1]?.toLowerCase() || "delete";
-
-    // Ensure structure exists
-    global.settings = global.settings || {};
-    global.settings.antilink = global.settings.antilink || {};
-
-    const groupId = from;
-
-    if (option === "on") {
-      global.settings.antilink[groupId] = { enabled: true, mode };
-      saveSettings(global.settings);
-      return reply(`Antilink enabled! Mode: ${mode.toUpperCase()} Links will be ${mode === "kick" ? "deleted and user kicked" : "deleted"}.`);
-    }
-
-    if (option === "off") {
-      if (global.settings.antilink[groupId]) {
-        delete global.settings.antilink[groupId];
-        saveSettings(global.settings);
-      }
-      return reply("Antilink disabled for this group.");
-    }
-
-    // Show current status
-    const current = global.settings.antilink[groupId];
-    reply(
-      `Antilink Settings for This Group\n\n` +
-      `Status: ${current?.enabled ? "ON" : "OFF"}\n` +
-      `Mode: ${current?.mode?.toUpperCase() || "DELETE"}\n\n` +
-      `Usage:\n` +
-      `.antilink on [delete/kick]\n` +
-      `.antilink off`
-    );
-
-  } catch (err) {
-    console.error("Antilink Command Error:", err);
-    reply("Error while updating antilink settings.");
-  }
-  break;
-}
-
+case whatsong':
+case 'whatssong':
+case Shazam':
 case 'shazam': {
   try {
     const axios = require('axios');
