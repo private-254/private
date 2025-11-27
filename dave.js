@@ -76,7 +76,7 @@ function jidDecode(jid) {
 
  module.exports = async function handleCommand(venom, m, command, groupAdmins, isBotAdmins, groupMeta, config, prefix) {
 
-    // ======= FIXED SENDER / OWNER DETECTION =======
+    // ===== FIXED JID DECODER =====
     venom.decodeJid = (jid) => {
         if (!jid) return jid;
         if (/:\d+@/gi.test(jid)) {
@@ -90,24 +90,25 @@ function jidDecode(jid) {
     const from = venom.decodeJid(m.key.remoteJid);
     const isGroup = from.endsWith("@g.us");
 
-    // ===== SENDER INFO (FINAL) =====
-    const senderJid = isGroup
-        ? venom.decodeJid(m.key.participant)
-        : venom.decodeJid(m.key.fromMe ? venom.user.id : m.key.remoteJid);
+    // ===== SENDER INFO =====
+    const sender = isGroup
+        ? venom.decodeJid(m.key.participant) // group sender
+        : venom.decodeJid(m.key.fromMe ? venom.user.id : m.key.remoteJid); // private chat
 
-    // ===== BOT NUMBER =====
+    // ===== BOT INFO =====
     const botNumber = venom.decodeJid(venom.user.id);
 
-    // ===== OWNER CHECK (FINAL WORKING) =====
-    // Checks if sender is bot itself OR listed in global.owner (set dynamically in index.js)
-    const isOwner = 
-        senderJid === botNumber || 
-        (global.owner && global.owner.some(ownerId => ownerId === senderJid.split("@")[0]));
+    // ===== OWNER CHECK =====
+    // true if sender is bot itself OR listed in global.owner
+    const isOwner = sender === botNumber || (global.owner && global.owner.some(ownerId => sender.startsWith(ownerId)));
 
     // ===== GROUP ADMIN CHECKS =====
-    const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
-    const isBotAdmin = isGroup ? groupAdmins.includes(botNumber) : false;
+    const groupMetaData = isGroup ? await venom.groupMetadata(from) : null;
+    const groupAdminsList = groupMetaData ? groupMetaData.participants.filter(p => p.admin).map(p => venom.decodeJid(p.id)) : [];
+    const isAdmin = isGroup ? groupAdminsList.includes(sender) : false;
+    const isBotAdmin = isGroup ? groupAdminsList.includes(botNumber) : false;
 
+    
     
     
     // ============ REPLY HELPERS ============
@@ -235,33 +236,32 @@ ${isGroupMsg ? `🏠 GROUP: ${groupName}` : ""}
         }
     }
 
-// ==================== ANTILINK SYSTEM ==================== //
-const anti = global.settings.antilink?.[from];
 
-if (anti?.enabled && body) {
+// ==================== ANTILINK SYSTEM ==================== //
+if (isGroup && global.settings?.antilink?.[from]?.enabled && body) {
+    const anti = global.settings.antilink[from];
     const linkDetected =
       body.includes("https://") ||
       body.includes("http://") ||
       body.includes("chat.whatsapp.com");
 
     if (linkDetected) {
-        const bvl = `Admin link detected — ignored.`;
+        // ====== Fetch group metadata & admins ======
+        const groupMetadata = await venom.groupMetadata(from);
+        const groupAdmins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
+        const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+        const isBotAdmin = groupAdmins.includes(botNumber);
+        const isSenderAdmin = groupAdmins.includes(senderJid);
 
-        if (isAdmin) return reply(bvl);
-        if (m.key.fromMe) return reply(bvl);
-        if (isOwner) return reply(bvl);
+        // ====== Ignore if sender is owner/admin/bot itself ======
+        if (isOwner || isSenderAdmin || m.key.fromMe) return;
 
-        // ========== DELETE MESSAGE ALWAYS FIRST ==========
-        await venom.sendMessage(from, {
-            delete: {
-                remoteJid: from,
-                fromMe: false,
-                id: m.key.id,
-                participant: m.key.participant
-            }
-        });
+        // ====== Delete the message ======
+        if (isBotAdmin) {
+            await venom.sendMessage(from, { delete: m.key });
+        }
 
-        // ========== WARN MODE ==========
+        // ====== WARN MODE ======
         if (anti.mode === "warn") {
             global.warns = global.warns || {};
             global.warns[senderJid] = (global.warns[senderJid] || 0) + 1;
@@ -275,10 +275,9 @@ if (anti?.enabled && body) {
               { mentions: [senderJid] }
             );
 
-            // Kick after 3 warnings
-            if (warnCount >= 3) {
+            if (warnCount >= 3 && isBotAdmin) {
                 await venom.groupParticipantsUpdate(from, [senderJid], "remove");
-                global.warns[senderJid] = 0; // reset after kick
+                global.warns[senderJid] = 0;
                 await reply(
                   `🚫 @${senderJid.split("@")[0]} has been removed for repeated link violations.`,
                   { mentions: [senderJid] }
@@ -288,8 +287,8 @@ if (anti?.enabled && body) {
             return;
         }
 
-        // ========== KICK MODE ==========
-        if (anti.mode === "kick") {
+        // ====== KICK MODE ======
+        if (anti.mode === "kick" && isBotAdmin) {
             await venom.groupParticipantsUpdate(from, [senderJid], "remove");
             return reply(
               `🚫 @${senderJid.split("@")[0]} sent a link and was kicked.`,
@@ -297,7 +296,7 @@ if (anti?.enabled && body) {
             );
         }
 
-        // ========== DELETE MODE (DEFAULT) ==========
+        // ====== DELETE MODE (DEFAULT) ======
         reply(
           `❌ Link deleted.\n@${senderJid.split("@")[0]} do not send links.`,
           { mentions: [senderJid] }
@@ -403,30 +402,37 @@ case 'ping': {
 
 
 // ================= PLAY-DOC =================
-
 case 'antilink': {
   try {
     if (!isGroup) return reply("This command only works in groups!");
-    if (!isOwner) return reply("Only the bot owner can toggle antilink!");
+
+    // Fetch group metadata & admins
+    const groupMetadata = await venom.groupMetadata(from);
+    const groupAdmins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
+    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+    const isBotAdmin = groupAdmins.includes(botNumber);
+    const isSenderAdmin = groupAdmins.includes(senderJid);
+
+    if (!isOwner && !isSenderAdmin)
+      return reply("Only the bot owner or group admins can toggle antilink!");
+    if (!isBotAdmin) return reply("I must be admin to manage antilink!");
 
     const option = args[0]?.toLowerCase();
     const mode = args[1]?.toLowerCase() || "delete"; // delete | kick | warn
 
     global.settings = global.settings || {};
     global.settings.antilink = global.settings.antilink || {};
-
     const groupId = from;
 
     if (option === "on") {
       global.settings.antilink[groupId] = { enabled: true, mode };
       saveSettings(global.settings);
-
       return reply(
-        `Antilink enabled!\nMode: ${mode.toUpperCase()}\n\n` +
+        `✅ Antilink enabled!\nMode: ${mode.toUpperCase()}\n` +
         (mode === "kick"
           ? "Links will be deleted and user kicked."
           : mode === "warn"
-          ? "User will be warned, link deleted and kicked after repeated warning."
+          ? "Users will be warned and kicked after repeated violations."
           : "Links will only be deleted.")
       );
     }
@@ -434,13 +440,13 @@ case 'antilink': {
     if (option === "off") {
       delete global.settings.antilink[groupId];
       saveSettings(global.settings);
-      return reply("Antilink disabled for this group.");
+      return reply("❌ Antilink disabled for this group.");
     }
 
+    // Show current status if no option provided
     const current = global.settings.antilink[groupId];
-
     reply(
-      `Antilink Settings for This Group\n\n` +
+      `📌 Antilink Settings for This Group\n` +
       `Status: ${current?.enabled ? "ON" : "OFF"}\n` +
       `Mode: ${current?.mode?.toUpperCase() || "DELETE"}\n\n` +
       `Usage:\n` +
@@ -450,130 +456,114 @@ case 'antilink': {
 
   } catch (e) {
     console.error(e);
-    reply("Error updating antilink settings.");
+    reply("❌ Error updating antilink settings.");
   }
   break;
 }
 
-// ==================== REJECT ==================== //
+// ==================== REJECT ====================
 case 'reject': {
-    try {
-        if (!isGroup) return reply("❌ This command only works in groups!");
-        if (!isOwner) return reply("❌ This command is for bot owner only!");
-        if (!isBotAdmin) return reply("❌ I must be admin to reject join requests!");
+  try {
+    if (!isGroup) return reply("❌ This command only works in groups!");
 
-        // Fetch pending join requests
-        let requestList;
-        try {
-            requestList = await venom.groupRequestParticipantsList(from);
-        } catch (err) {
-            console.error(err);
-            return reply("❌ Failed to fetch pending requests.");
-        }
+    const groupMetadata = await venom.groupMetadata(from);
+    const groupAdmins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
+    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+    const isBotAdmin = groupAdmins.includes(botNumber);
+    const isSenderAdmin = groupAdmins.includes(senderJid);
 
-        if (!requestList || requestList.length === 0) {
-            return reply("ℹ️ No pending requests detected.");
-        }
+    if (!isOwner && !isSenderAdmin) return reply("❌ Only owner or admins can reject requests!");
+    if (!isBotAdmin) return reply("❌ I must be admin to reject join requests!");
 
-        // Reject each participant
-        for (const participant of requestList) {
-            try {
-                await venom.groupRequestParticipantsUpdate(
-                    from,
-                    [participant.jid],
-                    "reject"
-                );
-            } catch (err) {
-                console.error(`Failed to reject ${participant.jid}:`, err);
-            }
-        }
+    const requestList = await venom.groupRequestParticipantsList(from);
+    if (!requestList || requestList.length === 0) return reply("ℹ️ No pending requests detected.");
 
-        reply("✅ All pending requests have been rejected!");
-    } catch (err) {
-        console.error(err);
-        reply("❌ An error occurred while rejecting requests.");
+    for (const participant of requestList) {
+      try {
+        await venom.groupRequestParticipantsUpdate(from, [participant.jid], "reject");
+      } catch (err) {
+        console.error(`Failed to reject ${participant.jid}:`, err);
+      }
     }
-    break;
+
+    reply("✅ All pending requests have been rejected!");
+  } catch (err) {
+    console.error(err);
+    reply("❌ An error occurred while rejecting requests.");
+  }
+  break;
 }
 
-// ==================== APPROVE ==================== //
+// ==================== APPROVE ====================
 case 'approve': {
-    try {
-        if (!isGroup) return reply("❌ This command only works in groups!");
-        if (!isOwner) return reply("❌ This command is for bot owner only!");
-        if (!isBotAdmin) return reply("❌ I must be admin to approve join requests!");
+  try {
+    if (!isGroup) return reply("❌ This command only works in groups!");
 
-        // Fetch pending join requests
-        let requestList;
-        try {
-            requestList = await venom.groupRequestParticipantsList(from);
-        } catch (err) {
-            console.error(err);
-            return reply("❌ Failed to fetch pending requests.");
-        }
+    const groupMetadata = await venom.groupMetadata(from);
+    const groupAdmins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
+    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+    const isBotAdmin = groupAdmins.includes(botNumber);
+    const isSenderAdmin = groupAdmins.includes(senderJid);
 
-        if (!requestList || requestList.length === 0) {
-            return reply("ℹ️ No pending requests detected.");
-        }
+    if (!isOwner && !isSenderAdmin) return reply("❌ Only owner or admins can approve requests!");
+    if (!isBotAdmin) return reply("❌ I must be admin to approve join requests!");
 
-        // Approve each participant
-        for (const participant of requestList) {
-            try {
-                await venom.groupRequestParticipantsUpdate(
-                    from,
-                    [participant.jid],
-                    "approve"
-                );
-            } catch (err) {
-                console.error(`Failed to approve ${participant.jid}:`, err);
-            }
-        }
+    const requestList = await venom.groupRequestParticipantsList(from);
+    if (!requestList || requestList.length === 0) return reply("ℹ️ No pending requests detected.");
 
-        reply("✅ All pending requests have been approved!");
-    } catch (err) {
-        console.error(err);
-        reply("❌ An error occurred while approving requests.");
+    for (const participant of requestList) {
+      try {
+        await venom.groupRequestParticipantsUpdate(from, [participant.jid], "approve");
+      } catch (err) {
+        console.error(`Failed to approve ${participant.jid}:`, err);
+      }
     }
-    break;
+
+    reply("✅ All pending requests have been approved!");
+  } catch (err) {
+    console.error(err);
+    reply("❌ An error occurred while approving requests.");
+  }
+  break;
 }
 
 case 'clearchat':
 case 'clear': {
-    try {
-        if (!isOwner) return reply("❌ This command is for owner only.");
+  try {
+    if (!isOwner) return reply("❌ Only the bot owner can clear all chats!");
 
-        reply("🧹 Clearing all chat messages...");
+    reply("🧹 Clearing all chats...");
 
-        let lastMsgId = null;
-        while (true) {
-            // Load messages batch (adjust 1000 as needed)
-            const messages = await venom.loadMessages(from, 1000, lastMsgId);
-            if (!messages || messages.length === 0) break;
+    // Get all chats the bot has access to
+    const allChats = Object.keys(venom.chats || {});
 
-            // Prepare delete keys
-            const keysToDelete = messages.map(m => ({
-                remoteJid: from,
-                fromMe: m.key.fromMe,
-                id: m.key.id,
-                participant: m.key.participant
-            }));
+    for (const chatId of allChats) {
+      let lastMsgId = null;
 
-            // Delete all messages in parallel for speed
-            await Promise.all(keysToDelete.map(key =>
-                venom.sendMessage(from, { delete: key }).catch(() => {})
-            ));
+      while (true) {
+        const messages = await venom.loadMessages(chatId, 1000, lastMsgId);
+        if (!messages || messages.length === 0) break;
 
-            // Set lastMsgId to continue fetching older messages
-            lastMsgId = messages[messages.length - 1].key.id;
-        }
+        const keysToDelete = messages.map(m => ({
+          remoteJid: chatId,
+          fromMe: m.key.fromMe,
+          id: m.key.id,
+          participant: m.key.participant
+        }));
 
-        reply("✅ All chat messages cleared successfully!");
+        // Delete all messages in parallel
+        await Promise.all(keysToDelete.map(key => venom.sendMessage(chatId, { delete: key }).catch(() => {})));
 
-    } catch (err) {
-        console.error("ClearChat Command Error:", err);
-        reply("❌ Failed to clear chat.");
+        lastMsgId = messages[messages.length - 1].key.id;
+      }
     }
-    break;
+
+    reply("✅ All messages in all chats cleared successfully!");
+  } catch (err) {
+    console.error("Clear All Chats Error:", err);
+    reply("❌ Failed to clear all chats.");
+  }
+  break;
 }
 
 case 'playdoc': {
@@ -763,6 +753,9 @@ case 'everyone': {
 }
 
 break;
+
+
+
 case 'private':
 case 'self': {
     if (!isOwner) return reply("❌ This command is for owner-only.");
@@ -1843,9 +1836,9 @@ if (!fs.existsSync(usersFile)) fs.writeFileSync(usersFile, JSON.stringify([]));
 
 let users = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
 
-// 🔹 Use senderJid instead of sender
-if (!users.includes(senderJid)) {
-    users.push(senderJid);
+// 🔹 Use sender instead of senderJid
+if (typeof sender !== 'undefined' && !users.includes(sender)) {
+    users.push(sender);
     fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
 }
 
