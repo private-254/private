@@ -113,7 +113,7 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
     // ===== GROUP ADMIN CHECKS =====
     const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
     const isBotAdmin = isGroup ? groupAdmins.includes(botNumber) : false;
-};
+
     
     // ============ REPLY HELPERS ============
     const reply = (text) => {
