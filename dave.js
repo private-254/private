@@ -78,7 +78,6 @@ function jidDecode(jid) {
 module.exports = async function handleCommand(venom, m, command, groupAdmins, isBotAdmins, groupMeta, config, prefix) {
 
 
-
 // ======= FIXED SENDER / OWNER DETECTION =======
 venom.decodeJid = (jid) => {
     if (!jid) return jid;
@@ -101,20 +100,22 @@ if (m.key.fromMe) {
     senderJid = venom.decodeJid(m.key.participant || from);
 }
 
-const participant = senderJid;
-const pushname = m.pushName || "Unknown User";
-const chatType = isGroup ? "Group" : "Private";
-const chatName = isGroup ? (groupMeta?.subject || "Unknown Group") : pushname;
+// normalize sender JID
+const normalizedSender = senderJid.split(':')[0] + "@s.whatsapp.net";
 
-// ===== BOT & OWNER CHECKS =====
-const botNumber = venom.decodeJid(venom.user.id); // normalize bot number
+// normalize bot JID
+const botNumber = venom.decodeJid(venom.user.id);
+const normalizedBot = botNumber.split(':')[0] + "@s.whatsapp.net";
 
-const isOwner = [botNumber, ...(global.owner || []).map(num => num.replace(/[^0-9]/g, '') + "@s.whatsapp.net")]
-    .includes(senderJid);
+// ===== OWNER CHECK =====
+// Only use global.owner and the bot itself
+const ownerList = (global.owner || []).map(num => num.replace(/[^0-9]/g, '') + "@s.whatsapp.net");
+const isOwner = [normalizedBot, ...ownerList].includes(normalizedSender);
 
 // ===== GROUP ADMIN CHECKS =====
-const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
-const isBotAdmin = isGroup ? groupAdmins.includes(botNumber) : false;
+const normalizedAdmins = (groupAdmins || []).map(jid => jid.split(':')[0] + "@s.whatsapp.net");
+const isAdmin = isGroup ? normalizedAdmins.includes(normalizedSender) : false;
+const isBotAdmin = isGroup ? normalizedAdmins.includes(normalizedBot) : false;
 
 
     // ============ REPLY HELPERS ============
