@@ -17,13 +17,13 @@ function loadSettings() {
       // ---------------- Flat feature toggles ----------------
       showConnectMsg: false,
       anticall: false,
-      autoviewstatus: true,                 // Auto-view status (default ON)
-      autoreactstatus: true,                // Auto-react to status
+      autoviewstatus: true,
+      autoreactstatus: true,
       statusReactEmojis: ["💙","❤️","🌚","😍","✅"],
 
       // ---------------- Store settings ----------------
-      maxStoreMessages: 20,                 // Maximum messages to store
-      storeWriteInterval: 10000,            // 10 seconds default
+      maxStoreMessages: 20,
+      storeWriteInterval: 10000,
 
       welcome: false,
       goodbye: false,
@@ -32,7 +32,7 @@ function loadSettings() {
       online: false,
 
       // ---------------- Public/private mode ----------------
-      mode: "public",                       // Default public
+      mode: "public",
       onlygroup: false,
       onlypc: false,
 
@@ -57,8 +57,8 @@ function loadSettings() {
 
       // ---------------- Bot info ----------------
       botName: "VENOM XMD",
-      ownerName: "Gifted-dave",    // <-- Updated to match menuSettings.json
-      owner: ["254104260236"]
+      ownerName: "Gifted-dave"   // Display only, NO NUMBER
+      // ❌ NO owner[] here anymore
     }, null, 2));
   }
 
