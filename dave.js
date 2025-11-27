@@ -73,6 +73,7 @@ function jidDecode(jid) {
     const [user, server] = jid.split(':');
     return { user, server };
 }
+
 module.exports = async function handleCommand(venom, m, command, groupAdmins, isBotAdmins, groupMeta, config, prefix) {
 
     // ======= FIXED SENDER / OWNER DETECTION =======
@@ -92,7 +93,7 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
     // ===== SENDER INFO =====
     let senderJid;
     if (m.key.fromMe) {
-        senderJid = venom.decodeJid(venom.user.id); // you are the sender
+        senderJid = venom.decodeJid(venom.user.id);  // You are the sender
     } else {
         senderJid = venom.decodeJid(m.key.participant || from);
     }
@@ -105,13 +106,14 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
     // ===== BOT & OWNER CHECKS =====
     const botNumber = venom.decodeJid(venom.user.id);
 
-    // Dynamic owner: the bot itself is the owner of its deployment
+    // Dynamic owner system:
+    // Whoever logged in (paired the bot) is automatically the owner.
     const isOwner = senderJid === botNumber;
 
     // ===== GROUP ADMIN CHECKS =====
     const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
     const isBotAdmin = isGroup ? groupAdmins.includes(botNumber) : false;
-
+};
     
     // ============ REPLY HELPERS ============
     const reply = (text) => {
@@ -138,7 +140,7 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
 
     // ✅ AUTO-REACTION: Send processing indicator for ALL commands
     try {
-        await reaction(venom, m, '🐀'); // Processing reaction
+        await reaction(venom, m, '🐔'); // Processing reaction
     } catch (e) {
         console.log('Could not send processing reaction:', e);
     }
