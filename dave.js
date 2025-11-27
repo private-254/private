@@ -116,6 +116,7 @@ const isOwner = [botNumber, ...(global.owner || []).map(num => num.replace(/[^0-
 const isAdmin = isGroup ? groupAdmins.includes(senderJid) : false;
 const isBotAdmin = isGroup ? groupAdmins.includes(botNumber) : false;
 
+
     // ============ REPLY HELPERS ============
     const reply = (text) => {
         const fake = createFakeContact(m);
