@@ -215,22 +215,21 @@ async function startvenom() {
       log.error('Connection closed.');
       if (shouldReconnect) setTimeout(() => startvenom(), 5000);
 
-    } else if (connection === 'open') {
-      const botNumber = venom.user.id.split("@")[0];
-      
-      // Set owner dynamically to bot's number
-      global.owner = [botNumber];
-      console.log(`Global owner set to bot number: ${botNumber}`);
-      
-      log.success(`Bot connected as ${chalk.green(botNumber)}`);
-      try { rl.close(); } catch (e) {}
+   } else if (connection === 'open') {
+    const botNumber = venom.user.id.split("@")[0];
 
-      await delay(3000);
+    // Set owner dynamically WITH FULL JID
+    global.owner = [`${botNumber}@s.whatsapp.net`];
 
-      try {
+    log.success(`Bot connected as ${chalk.green(botNumber)}`);
+    try { rl.close(); } catch (e) {}
+
+    await delay(3000);
+
+    try {
         if (global.settings && global.settings.showConnectMsg !== false) {
-          const ownerJid = `${botNumber}@s.whatsapp.net`;
-          const message = `
+            const ownerJid = `${botNumber}@s.whatsapp.net`;
+            const message = `
 ╔═══════════════════════
 ║      VENOM-XMD
 ╠═══════════════════════
