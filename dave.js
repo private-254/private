@@ -1845,14 +1845,16 @@ case 'help': {
   const ownerName = menuSettings.ownerName || config.OWNER_NAME || global.settings?.ownerName || "Gifted-Dave";
 
   const usersFile = path.join(__dirname, 'davelib', 'users.json');
-  if (!fs.existsSync(usersFile)) fs.writeFileSync(usersFile, JSON.stringify([]));
+if (!fs.existsSync(usersFile)) fs.writeFileSync(usersFile, JSON.stringify([]));
 
-  let users = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
-  if (!users.includes(sender)) {
-    users.push(sender);
+let users = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
+
+// 🔹 Use senderJid instead of sender
+if (!users.includes(senderJid)) {
+    users.push(senderJid);
     fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
-  }
-  
+}
+
 
   const caseFile = path.join(__dirname, 'dave.js');
   const caseContent = fs.readFileSync(caseFile, 'utf8');
