@@ -242,14 +242,23 @@ ${isGroupMsg ? `🏠 GROUP: ${groupName}` : ""}
         }
     }
 
-// ==================== ANTI-LINK SYSTEM ==================== //
-if (global.settings.antilinkgc && global.settings.antilinkgc.enabled) {
-    if (body.match(`chat.whatsapp.com`)) {
-        const bvl = `GC Link Detected\n\nAdmin has sent a gc link, admin is free to send any link`
-        if (isAdmin) return reply(bvl)
-        if (m.key.fromMe) return reply(bvl)
-        if (isOwner) return reply(bvl)
+// ==================== ANTILINK SYSTEM ==================== //
+const anti = global.settings.antilink?.[from];
 
+if (anti?.enabled && body) {
+    const linkDetected =
+      body.includes("https://") ||
+      body.includes("http://") ||
+      body.includes("chat.whatsapp.com");
+
+    if (linkDetected) {
+        const bvl = `Admin link detected — ignored.`;
+
+        if (isAdmin) return reply(bvl);
+        if (m.key.fromMe) return reply(bvl);
+        if (isOwner) return reply(bvl);
+
+        // ========== DELETE MESSAGE ALWAYS FIRST ==========
         await venom.sendMessage(from, {
             delete: {
                 remoteJid: from,
@@ -257,33 +266,49 @@ if (global.settings.antilinkgc && global.settings.antilinkgc.enabled) {
                 id: m.key.id,
                 participant: m.key.participant
             }
-        })
-        await venom.sendMessage(from, {
-            text: `GC Link Detected\n\n@${senderJid.split("@")[0]} has sent a link and successfully deleted`, 
-            contextInfo: { mentionedJid: [senderJid] }
-        }, { quoted: m })
-    }
-}
+        });
 
-if (global.settings.antilink && global.settings.antilink.enabled) {
-    if (body.match('http') && body.match('https')) {
-        const bvl = `Link Detected\n\nAdmin has sent a link, admin is free to send any link`
-        if (isAdmin) return reply(bvl)
-        if (m.key.fromMe) return reply(bvl)
-        if (isOwner) return reply(bvl)
+        // ========== WARN MODE ==========
+        if (anti.mode === "warn") {
+            global.warns = global.warns || {};
+            global.warns[senderJid] = (global.warns[senderJid] || 0) + 1;
 
-        await venom.sendMessage(from, {
-            delete: {
-                remoteJid: from,
-                fromMe: false,
-                id: m.key.id,
-                participant: m.key.participant
+            const warnCount = global.warns[senderJid];
+
+            await reply(
+              `⚠️ *WARNING ${warnCount}/3*\n` +
+              `@${senderJid.split("@")[0]} sent a forbidden link.\n` +
+              `If you reach *3 warnings*, you will be removed.`,
+              { mentions: [senderJid] }
+            );
+
+            // Kick after 3 warnings
+            if (warnCount >= 3) {
+                await venom.groupParticipantsUpdate(from, [senderJid], "remove");
+                global.warns[senderJid] = 0; // reset after kick
+                await reply(
+                  `🚫 @${senderJid.split("@")[0]} has been removed for repeated link violations.`,
+                  { mentions: [senderJid] }
+                );
             }
-        })
-        await venom.sendMessage(from, {
-            text: `Link Detected\n\n@${senderJid.split("@")[0]} has sent a link and successfully deleted`, 
-            contextInfo: { mentionedJid: [senderJid] }
-        }, { quoted: m })
+
+            return;
+        }
+
+        // ========== KICK MODE ==========
+        if (anti.mode === "kick") {
+            await venom.groupParticipantsUpdate(from, [senderJid], "remove");
+            return reply(
+              `🚫 @${senderJid.split("@")[0]} sent a link and was kicked.`,
+              { mentions: [senderJid] }
+            );
+        }
+
+        // ========== DELETE MODE (DEFAULT) ==========
+        reply(
+          `❌ Link deleted.\n@${senderJid.split("@")[0]} do not send links.`,
+          { mentions: [senderJid] }
+        );
     }
 }
 
@@ -385,6 +410,97 @@ case 'ping': {
 
 
 // ================= PLAY-DOC =================
+
+case 'antilink': {
+  try {
+    if (!isGroup) return reply("This command only works in groups!");
+    if (!isOwner) return reply("Only the bot owner can toggle antilink!");
+
+    const option = args[0]?.toLowerCase();
+    const mode = args[1]?.toLowerCase() || "delete"; // delete | kick | warn
+
+    global.settings = global.settings || {};
+    global.settings.antilink = global.settings.antilink || {};
+
+    const groupId = from;
+
+    if (option === "on") {
+      global.settings.antilink[groupId] = { enabled: true, mode };
+      saveSettings(global.settings);
+
+      return reply(
+        `Antilink enabled!\nMode: ${mode.toUpperCase()}\n\n` +
+        (mode === "kick"
+          ? "Links will be deleted and user kicked."
+          : mode === "warn"
+          ? "User will be warned, link deleted and kicked after repeated warning."
+          : "Links will only be deleted.")
+      );
+    }
+
+    if (option === "off") {
+      delete global.settings.antilink[groupId];
+      saveSettings(global.settings);
+      return reply("Antilink disabled for this group.");
+    }
+
+    const current = global.settings.antilink[groupId];
+
+    reply(
+      `Antilink Settings for This Group\n\n` +
+      `Status: ${current?.enabled ? "ON" : "OFF"}\n` +
+      `Mode: ${current?.mode?.toUpperCase() || "DELETE"}\n\n` +
+      `Usage:\n` +
+      `.antilink on [delete/kick/warn]\n` +
+      `.antilink off`
+    );
+
+  } catch (e) {
+    console.error(e);
+    reply("Error updating antilink settings.");
+  }
+  break;
+}
+
+
+case 'clearchat':
+case 'clear': {
+    try {
+        if (!isOwner) return reply("❌ This command is for owner only.");
+
+        reply("🧹 Clearing all chat messages...");
+
+        let lastMsgId = null;
+        while (true) {
+            // Load messages batch (adjust 1000 as needed)
+            const messages = await venom.loadMessages(from, 1000, lastMsgId);
+            if (!messages || messages.length === 0) break;
+
+            // Prepare delete keys
+            const keysToDelete = messages.map(m => ({
+                remoteJid: from,
+                fromMe: m.key.fromMe,
+                id: m.key.id,
+                participant: m.key.participant
+            }));
+
+            // Delete all messages in parallel for speed
+            await Promise.all(keysToDelete.map(key =>
+                venom.sendMessage(from, { delete: key }).catch(() => {})
+            ));
+
+            // Set lastMsgId to continue fetching older messages
+            lastMsgId = messages[messages.length - 1].key.id;
+        }
+
+        reply("✅ All chat messages cleared successfully!");
+
+    } catch (err) {
+        console.error("ClearChat Command Error:", err);
+        reply("❌ Failed to clear chat.");
+    }
+    break;
+}
 case 'playdoc': {
     try {
         const tempDir = path.join(__dirname, "temp");
