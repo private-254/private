@@ -36,18 +36,18 @@ function createFakeContact(message) {
     const sender = message.key.participant || message.key.remoteJid;
     const number = sender.split('@')[0];
     const name = message.pushName || "User";
-    
+
     return {
         key: {
             fromMe: false,
-            participant: "0@s.whatsapp.net", 
-            remoteJid: "status@broadcast",
+            participant: `0@s.whatsapp.net`,
+            ...(sender ? { remoteJid: "status@broadcast" } : {}),
             id: "VENOM-XMD"
         },
         message: {
             contactMessage: {
                 displayName: `𝘿𝙖𝙫𝙚𝘼𝙄`,
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:;${name};;;\nFN:${name}\nitem1.TEL;waid=${number}:${number}\nitem1.X-ABLabel:Phone\nEND:VCARD`,
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:XL;Vinzx,;;;\nFN:${name},\nitem1.TEL;waid=${number}:${number}\nitem1.X-ABLabel:Phone\nEND:VCARD`,
                 jpegThumbnail: { url: 'https://files.catbox.moe/yqbio5.jpg' }
             }
         },
