@@ -2377,7 +2377,7 @@ case 'setmenuvideo': {
 
 // ================= VV =================
 case 'vv': {
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { downloadContentFromMessage } = require('@trashcore/baileys');
     try {
         if (!m.quoted) return reply(' Please reply to a *view once* message!');
         
@@ -2491,7 +2491,7 @@ case 'stickersteal':
 case 'stickertake':
 case 'wm': {
     try {
-        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const { downloadContentFromMessage } = require('@trashcore/baileys');
         const fs = require('fs');
         const path = require('path');
         const { tmpdir } = require('os');
@@ -2538,7 +2538,7 @@ case 'toimg':
 case 'getimage':
 case 'image': {
     try {
-        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const { downloadContentFromMessage } = require('@trashcore/baileys');
         const fs = require('fs');
         const path = require('path');
         const { tmpdir } = require('os');
@@ -2586,7 +2586,7 @@ case 'sticker':
 case 'stik':
 case 's': {
     try {
-        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const { downloadContentFromMessage } = require('@trashcore/baileys');
         const fs = require('fs');
         const path = require('path');
         const { tmpdir } = require('os');
@@ -2831,7 +2831,7 @@ case 'toaudio':
 case 'tomp3':
 case 'toaud': {
     try {
-        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const { downloadContentFromMessage } = require('@trashcore/baileys');
         const ffmpeg = require('fluent-ffmpeg');
         const fs = require('fs');
         const { tmpdir } = require('os');
@@ -2891,7 +2891,7 @@ case 'toaud': {
 case 'tovn':
 case 'toptt': {
     try {
-        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const { downloadContentFromMessage } = require('@trashcore/baileys');
         const ffmpeg = require('fluent-ffmpeg');
         const fs = require('fs');
         const path = require('path');
@@ -2964,7 +2964,7 @@ case 'slow':
 case 'smooth':
 case 'squirrel': {
     try {
-        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const { downloadContentFromMessage } = require('@trashcore/baileys');
         const ffmpeg = require('fluent-ffmpeg');
         const fs = require('fs');
         const path = require('path');
@@ -3400,7 +3400,7 @@ case 'enc':
 case 'encrypt': {
   try {
     const JsConfuser = require('js-confuser');
-    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+    const { downloadContentFromMessage } = require('@trashcore/baileys');
     const fs = require('fs');
 
     // Ensure we have a quoted message
@@ -3867,7 +3867,7 @@ case 'tourl': {
     const { tmpdir } = require('os');
     const axios = require('axios');
     const FormData = require('form-data');
-    const { downloadContentFromMessage, generateWAMessageFromContent } = require('@whiskeysockets/baileys');
+    const { downloadContentFromMessage, generateWAMessageFromContent } = require('@trashcore/baileys');
 
     //  Detect quoted or direct media
     const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -3970,7 +3970,7 @@ case 'upload': {
         const { tmpdir } = require('os');
         const axios = require('axios');
         const FormData = require('form-data');
-        const { downloadContentFromMessage, generateWAMessageFromContent } = require('@whiskeysockets/baileys');
+        const { downloadContentFromMessage, generateWAMessageFromContent } = require('@trashcore/baileys');
 
         // Detect quoted or direct media
         const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -4100,7 +4100,7 @@ case 'tovideo': {
     const FormData = require("form-data");
     const path = require("path");
     const { tmpdir } = require("os");
-    const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
+    const { downloadContentFromMessage } = require("@trashcore/baileys");
 
     //  Function to convert WebP  MP4 using ezgif.com
     async function webp2mp4File(filepath) {
@@ -4187,7 +4187,7 @@ case 'ocr':
 case 'readtext': {
   try {
     const axios = require("axios");
-    const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
+    const { downloadContentFromMessage } = require("@trashcore/baileys");
 
     const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     const msg =
@@ -4485,7 +4485,7 @@ case 'listinactive': {
 // ================= SETDP=================
 case 'setdp': {
   try {
-    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+    const { downloadContentFromMessage } = require('@trashcore/baileys');
     const fs = require('fs');
     const path = require('path');
     const tmp = require('os').tmpdir();
@@ -4526,7 +4526,7 @@ case 'fast':
 case 'deep':
 case 'bass': {
   try {
-    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+    const { downloadContentFromMessage } = require('@trashcore/baileys');
     const ffmpeg = require('fluent-ffmpeg');
     const fs = require('fs');
     const { tmpdir } = require('os');
@@ -4594,9 +4594,9 @@ case 'devoloper':
 case 'owner':
 case 'dave': {
     try {
-        const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
+        const { generateWAMessageFromContent, proto } = require('@trashcore/baileys');
         
-        const namaown = `𝘿𝙖𝙫𝙚𝘼𝙄`;
+        const namaown = `𝘿𝙖𝙫𝙚`;
         const NoOwn = `254104260236`;
         
         const contact = generateWAMessageFromContent(m.chat, proto.Message.fromObject({
@@ -4899,7 +4899,7 @@ case 'setdesc': {
 
 case 'save': {
     try {
-        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const { downloadContentFromMessage } = require('@trashcore/baileys');
         const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         
         if (!quotedMsg) return reply(" Please reply to a status message");
@@ -5049,7 +5049,7 @@ case 'rch': {
 
 case 'convertphoto': {
   try {
-    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+    const { downloadContentFromMessage } = require('@trashcore/baileys');
     const fs = require('fs');
     const path = require('path');
     const { tmpdir } = require('os');
@@ -5661,7 +5661,7 @@ case 'video': {
 
 case 'dave':
 case 'allmenu': {
-  const { generateWAMessageContent, generateWAMessageFromContent } = require('@whiskeysockets/baileys');
+  const { generateWAMessageContent, generateWAMessageFromContent } = require('@trashcore/baileys');
 
   try {
     const categories = [
@@ -6841,7 +6841,7 @@ case 'getfile': {
 // ================= TO AUDIO  =================
 case 'toaudio': {
   try {
-    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+    const { downloadContentFromMessage } = require('@trashcore/baileys');
     const ffmpeg = require('fluent-ffmpeg');
     const fs = require('fs');
     const { tmpdir } = require('os');
@@ -6898,7 +6898,7 @@ case 'toaudio': {
 // ================= TO VOICE NOTE  =================
 case 'tovoicenote': {
   try {
-    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+    const { downloadContentFromMessage } = require('@trashcore/baileys');
     const ffmpeg = require('fluent-ffmpeg');
     const fs = require('fs');
     const path = require('path');
@@ -6957,7 +6957,7 @@ case 'tovoicenote': {
 // ================= TO IMAGE =================
 case 'toimage': {
   try {
-    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+    const { downloadContentFromMessage } = require('@trashcore/baileys');
     const fs = require('fs');
     const path = require('path');
     const { tmpdir } = require('os');
@@ -7009,7 +7009,7 @@ case 'Shazam':
 case 'shazam': {
   try {
     const axios = require('axios');
-    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+    const { downloadContentFromMessage } = require('@trashcore/baileys');
 
     const quotedMsg = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     const msg = (quotedMsg && (quotedMsg.audioMessage || quotedMsg.voiceMessage)) || m.message?.audioMessage || m.message?.voiceMessage;
@@ -7760,7 +7760,7 @@ case 'fancy': {
 
 case 'take': {
   try {
-    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+    const { downloadContentFromMessage } = require('@trashcore/baileys');
     const fs = require('fs');
     const path = require('path');
     const { tmpdir } = require('os');
@@ -7802,7 +7802,7 @@ case 'take': {
 case 's': 
 case 'sticker': {
   try {
-    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+    const { downloadContentFromMessage } = require('@trashcore/baileys');
     const fs = require('fs');
     const path = require('path');
     const { tmpdir } = require('os');
