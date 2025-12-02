@@ -154,7 +154,7 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
 
     // ✅ AUTO-REACTION: Send processing indicator for ALL commands
     try {
-        await reaction(venom, m, '🐔'); // Processing reaction
+        await reaction(venom, m, '🪄'); // Processing reaction
     } catch (e) {
         console.log('Could not send processing reaction:', e);
     }
