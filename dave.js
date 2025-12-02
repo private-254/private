@@ -74,62 +74,27 @@ function jidDecode(jid) {
     return { user, server };
 }
 
+module.exports = async function handleCommand(venom, m, command, groupAdmins, isBotAdmins, groupMeta, config, prefix) {
 
-module.exports = async function handleCommand(venom, m, command, args, isGroup, isAdmin, groupAdmins, groupMeta, jidDecode, config, prefix) {
-
-    // ===== FIXED JID DECODER =====  
-    venom.decodeJid = (jid) => {  
-        if (!jid) return jid;  
-        if (jid.includes('@')) {
-            return jid; // Already a full JID
-        }
-        if (jid.includes(':')) {  
-            const decode = jidDecode(jid) || {};  
-            return decode.user && decode.server ? `${decode.user}@${decode.server}` : jid;  
-        }  
-        return jid;  
-    };  
-
-    // ===== CHAT INFO =====  
-    const from = venom.decodeJid(m.key.remoteJid);  
-    const isGroupMsg = from?.endsWith?.("@g.us") || false;  
-
-    // ===== SENDER INFO =====  
-    const sender = isGroupMsg  
-        ? venom.decodeJid(m.key.participant || m.key.remoteJid) // group sender  
-        : venom.decodeJid(m.key.fromMe ? venom.user.id : m.key.remoteJid); // private chat  
-
-    // ===== BOT INFO =====  
-    const botNumber = venom.user?.id?.split(':')[0] || '';
-    const botJid = botNumber ? `${botNumber}@s.whatsapp.net` : '';
-
-    // ===== OWNER CHECK =====  
-    const senderNumber = sender.split('@')[0];
-    const ownerNumbers = [botNumber, ...(global.owner || [])].map(num => 
-        num.toString().replace(/[^0-9]/g, '')
-    );
-    const isOwner = ownerNumbers.includes(senderNumber);
-
-    // ===== GROUP ADMIN CHECKS =====  
-    let groupMetaData = groupMeta || null;
-    let groupAdminsList = groupAdmins || [];
-    let isBotAdmin = false;
-    let actualIsAdmin = false; // The real admin status from group metadata
-
-    if (isGroupMsg) {
-        try {
-            groupMetaData = groupMetaData || await venom.groupMetadata(from);
-            const participants = groupMetaData?.participants || [];
-            groupAdminsList = participants.filter(p => p.admin).map(p => p.id);
-            isBotAdmin = groupAdminsList.includes(botJid);
-            actualIsAdmin = groupAdminsList.includes(sender); // Check if sender is actually admin
-        } catch (error) {
-            console.log('Failed to get group metadata:', error);
-            actualIsAdmin = isAdmin; // Fall back to passed isAdmin parameter
-        }
-    }
-
-    // ============ REPLY HELPERS ============
+    // ======= Safe JID decoding =======
+    venom.decodeJid = (jid) => {
+        if (!jid) return jid;
+        if (/:\d+@/gi.test(jid)) {
+            let decode = jidDecode(jid) || {};
+            return decode.user && decode.server ? `${decode.user}@${decode.server}` : jid;
+        } else return jid;
+    };
+    const from = venom.decodeJid(m.key.remoteJid);
+    const sender = m.key.participant || m.key.remoteJid;
+    const participant = venom.decodeJid(m.key.participant || from);
+    const pushname = m.pushName || "Unknown User";
+    const chatType = from.endsWith('@g.us') ? 'Group' : 'Private';
+    const chatName = chatType === 'Group' ? (groupMeta?.subject || 'Unknown Group') : pushname;
+    // Safe owner check
+    const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
+    const senderJid = m.key.participant || m.key.remoteJid;
+    const isOwner = senderJid === botNumber;
+    
     const reply = (text) => {
         const fake = createFakeContact(m);
         return venom.sendMessage(from, { text }, { quoted: fake });
@@ -139,29 +104,25 @@ module.exports = async function handleCommand(venom, m, command, args, isGroup, 
         const fake = createFakeContact(m);
         return venom.sendMessage(from, { text, ...options }, { quoted: fake });
     };
-
-    // ===== MESSAGE CONTEXT =====
-    const pushname = m.pushName || "Unknown User";
+    
+    const isGroup = from.endsWith('@g.us'); // true if group
     const ctx = m.message.extendedTextMessage?.contextInfo || {};
     const quoted = ctx.quotedMessage;
     const quotedSender = venom.decodeJid(ctx.participant || from);
     const mentioned = ctx.mentionedJid?.map(venom.decodeJid) || [];
 
-    const body = m.body || m.message.conversation || m.message.extendedTextMessage?.text || '';
+    const body = m.message.conversation || m.message.extendedTextMessage?.text || '';
+    const args = body.trim().split(/ +/).slice(1);
     const q = args.join(" ");
     const text = args.join(" ");
+
     const time = new Date().toLocaleTimeString();
-
-    // ✅ AUTO-REACTION: Send processing indicator for ALL commands
-    try {
-        await reaction(venom, m, '🪄'); // Processing reaction
-    } catch (e) {
-        console.log('Could not send processing reaction:', e);
-    }
-
+   
     if (m.message) {
+        const isGroupMsg = m.isGroup;
+        const body = m.body || m.messageStubType || "—";
         const pushnameDisplay = m.pushName || "Unknown";
-        const commandName = body.startsWith(prefix || '.') ? body.split(' ')[0] : null;
+        const command = body.startsWith(prefix) ? body.split(' ')[0] : null;
 
         // 🕒 Time in EAT
         const date = new Date().toLocaleString("en-KE", {
