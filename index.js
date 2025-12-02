@@ -11,7 +11,7 @@ const {
   fetchLatestBaileysVersion,
   downloadContentFromMessage,
   jidDecode
-} = require('@whiskeysockets/baileys');
+} = require('@trashcore/baileys');
 
 const handleCommand = require('./dave');
 const config = require('./config');
