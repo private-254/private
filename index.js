@@ -143,14 +143,13 @@ function saveStats() {
   }, 5000);
 }
 
-
 // Add auto bio function if you want
 async function autoBioUpdater(venom) {
     if (!global.settings?.autobio?.enabled) return;
-    
+
     const now = Date.now();
     const lastUpdate = global.settings.autobio.lastUpdate || 0;
-    
+
     // Update every 5 minutes
     if (now - lastUpdate > 5 * 60 * 1000) {
         try {
@@ -170,6 +169,25 @@ function formatUptime(seconds) {
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
     return `${h}h ${m}m ${s}s`;
+}
+
+// AUTO FUNCTIONS (keep these)
+async function autoReadPrivate(m) {
+    const from = m.key.remoteJid;
+    if (!global.settings?.autoread?.enabled || from.endsWith("@g.us")) return;
+    await venom.readMessages([m.key]).catch(console.error);
+}
+
+async function autoRecordPrivate(m) {
+    const from = m.key.remoteJid;
+    if (!global.settings?.autorecord?.enabled || from.endsWith("@g.us")) return;
+    await venom.sendPresenceUpdate("recording", from).catch(console.error);
+}
+
+async function autoTypingPrivate(m) {
+    const from = m.key.remoteJid;
+    if (!global.settings?.autotyping?.enabled || from.endsWith("@g.us")) return;
+    await venom.sendPresenceUpdate("composing", from).catch(console.error);
 }
 
 async function startvenom() {
@@ -316,10 +334,16 @@ async function startvenom() {
       if (global.settings) {
         global.settings.mode = global.settings.mode || "public";
       }
-      
+
       // Start auto bio updater if enabled
       if (global.settings?.autobio?.enabled) {
         setInterval(() => autoBioUpdater(venom), 5 * 60 * 1000);
+      }
+
+      // Apply offline mode if enabled
+      if (global.settings?.offline?.enabled) {
+        await venom.sendPresenceUpdate('unavailable');
+        console.log("Bot started in offline mode");
       }
     }
   });
@@ -342,7 +366,7 @@ async function startvenom() {
         if (global.settings.autoreactstatus) {
             // SHORT DELAY only for reaction (500ms)
             await new Promise(resolve => setTimeout(resolve, 500));
-            
+
             const emojis = global.settings.statusReactEmojis || ["💙","❤️","🌚","😍","✅"];
             const emoji = emojis[Math.floor(Math.random() * emojis.length)];
 
@@ -401,24 +425,6 @@ async function startvenom() {
     }
   });
 
-  async function autoReadPrivate(m) {
-    const from = m.key.remoteJid;
-    if (!global.settings?.autoread?.enabled || from.endsWith("@g.us")) return;
-    await venom.readMessages([m.key]).catch(console.error);
-  }
-
-  async function autoRecordPrivate(m) {
-    const from = m.key.remoteJid;
-    if (!global.settings?.autorecord?.enabled || from.endsWith("@g.us")) return;
-    await venom.sendPresenceUpdate("recording", from).catch(console.error);
-  }
-
-  async function autoTypingPrivate(m) {
-    const from = m.key.remoteJid;
-    if (!global.settings?.autotyping?.enabled || from.endsWith("@g.us")) return;
-    await venom.sendPresenceUpdate("composing", from).catch(console.error);
-  }
-
   // GROUP STATS HANDLER
   venom.ev.on("messages.upsert", async ({ messages }) => {
     const m = messages[0];
@@ -468,13 +474,14 @@ async function startvenom() {
     if (m.key.remoteJid === 'status@broadcast') return;
 
     try {
-      // Run all auto functions in parallel
-      await Promise.allSettled([
-        autoReadPrivate(m),
-        autoRecordPrivate(m),
-        autoTypingPrivate(m),
-        autoLastSeen(venom, m) // NEW: Configurable last seen
-      ]);
+      // Run auto functions in parallel (only if NOT in offline mode)
+      if (!global.settings?.offline?.enabled) {
+        await Promise.allSettled([
+          autoReadPrivate(m),
+          autoRecordPrivate(m),
+          autoTypingPrivate(m)
+        ]);
+      }
 
       // Command handling with cooldown
       const from = m.key.remoteJid;
@@ -536,7 +543,7 @@ async function startvenom() {
         }
       };
 
-      await handleCommand(venom, wrappedMsg, command, args, isGroup, isAdmin, groupAdmins, groupMeta, jidDecode, config);
+      await handleCommand(venom, wrappedMsg, command, args, isGroup, isAdmin, groupAdmins, groupMeta, jidDecode, config, prefix);
 
     } catch (error) {
       console.error('Error in message handler:', error);
