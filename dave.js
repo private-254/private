@@ -74,42 +74,60 @@ function jidDecode(jid) {
     return { user, server };
 }
 
- module.exports = async function handleCommand(venom, m, command, groupAdmins, isBotAdmins, groupMeta, config, prefix) {
 
+module.exports = async function handleCommand(venom, m, command, groupAdmins, isBotAdmins, groupMeta, config, prefix) {
+    
     // ===== FIXED JID DECODER =====  
-venom.decodeJid = (jid) => {  
-    if (!jid) return jid;  
-    if (/:\d+@/gi.test(jid)) {  
-        const decode = jidDecode(jid) || {};  
-        return decode.user && decode.server ? `${decode.user}@${decode.server}` : jid;  
-    }  
-    return jid;  
-};  
+    venom.decodeJid = (jid) => {  
+        if (!jid) return jid;  
+        if (jid.includes('@')) {
+            return jid; // Already a full JID
+        }
+        if (jid.includes(':')) {  
+            const decode = jidDecode(jid) || {};  
+            return decode.user && decode.server ? `${decode.user}@${decode.server}` : jid;  
+        }  
+        return jid;  
+    };  
 
-// ===== CHAT INFO =====  
-const from = venom.decodeJid(m.key.remoteJid);  
-const isGroup = from?.endsWith?.("@g.us") || false;  
+    // ===== CHAT INFO =====  
+    const from = venom.decodeJid(m.key.remoteJid);  
+    const isGroup = from?.endsWith?.("@g.us") || false;  
 
-// ===== SENDER INFO =====  
-const sender = isGroup  
-    ? venom.decodeJid(m.key.participant || '') // group sender  
-    : venom.decodeJid(m.key.fromMe ? venom.user.id : m.key.remoteJid); // private chat  
+    // ===== SENDER INFO =====  
+    const sender = isGroup  
+        ? venom.decodeJid(m.key.participant || m.key.remoteJid) // group sender  
+        : venom.decodeJid(m.key.fromMe ? venom.user.id : m.key.remoteJid); // private chat  
 
-// ===== BOT INFO =====  
-const botNumber = venom.decodeJid(venom.user?.id || '');  
+    // ===== BOT INFO =====  
+    const botNumber = venom.user?.id?.split(':')[0] || '';
+    const botJid = botNumber ? `${botNumber}@s.whatsapp.net` : '';
 
-// ===== OWNER CHECK =====  
-// true if sender is bot itself OR listed in global.owner  
-const isOwner = sender === botNumber || (global.owner && global.owner.some(ownerId => sender?.startsWith(ownerId)));  
+    // ===== OWNER CHECK =====  
+    const senderNumber = sender.split('@')[0];
+    const ownerNumbers = [botNumber, ...(global.owner || [])].map(num => 
+        num.toString().replace(/[^0-9]/g, '')
+    );
+    const isOwner = ownerNumbers.includes(senderNumber);
 
-// ===== GROUP ADMIN CHECKS =====  
-const groupMetaData = isGroup ? await venom.groupMetadata(from).catch(() => null) : null;  
-const groupAdminsList = groupMetaData?.participants?.filter(p => p.admin).map(p => venom.decodeJid(p.id)) || [];  
-const isAdmin = isGroup ? groupAdminsList.includes(sender) : false;  
-const isBotAdmin = isGroup ? groupAdminsList.includes(botNumber) : false; 
-    
-    
-    
+    // ===== GROUP ADMIN CHECKS =====  
+    let groupMetaData = null;
+    let groupAdminsList = [];
+    let isAdmin = false;
+    let isBotAdmin = false;
+
+    if (isGroup) {
+        try {
+            groupMetaData = await venom.groupMetadata(from);
+            const participants = groupMetaData?.participants || [];
+            groupAdminsList = participants.filter(p => p.admin).map(p => p.id);
+            isAdmin = groupAdminsList.includes(sender);
+            isBotAdmin = groupAdminsList.includes(botJid);
+        } catch (error) {
+            console.log('Failed to get group metadata:', error);
+        }
+    }
+
     // ============ REPLY HELPERS ============
     const reply = (text) => {
         const fake = createFakeContact(m);
@@ -121,6 +139,8 @@ const isBotAdmin = isGroup ? groupAdminsList.includes(botNumber) : false;
         return venom.sendMessage(from, { text, ...options }, { quoted: fake });
     };
 
+    // ===== MESSAGE CONTEXT =====
+    const pushname = m.pushName || "Unknown User";
     const ctx = m.message.extendedTextMessage?.contextInfo || {};
     const quoted = ctx.quotedMessage;
     const quotedSender = venom.decodeJid(ctx.participant || from);
@@ -130,7 +150,6 @@ const isBotAdmin = isGroup ? groupAdminsList.includes(botNumber) : false;
     const args = body.trim().split(/ +/).slice(1);
     const q = args.join(" ");
     const text = args.join(" ");
-
     const time = new Date().toLocaleTimeString();
 
     // ✅ AUTO-REACTION: Send processing indicator for ALL commands
@@ -145,7 +164,7 @@ const isBotAdmin = isGroup ? groupAdminsList.includes(botNumber) : false;
         const body = m.body || m.messageStubType || "—";
         const pushnameDisplay = m.pushName || "Unknown";
         const command = body.startsWith(prefix) ? body.split(' ')[0] : null;
-
+        
         // 🕒 Time in EAT
         const date = new Date().toLocaleString("en-KE", {
             timeZone: "Africa/Nairobi",
