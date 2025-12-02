@@ -76,7 +76,7 @@ function jidDecode(jid) {
 
 
 module.exports = async function handleCommand(venom, m, command, args, isGroup, isAdmin, groupAdmins, groupMeta, jidDecode, config, prefix) {
-    
+
     // ===== FIXED JID DECODER =====  
     venom.decodeJid = (jid) => {  
         if (!jid) return jid;  
@@ -114,6 +114,7 @@ module.exports = async function handleCommand(venom, m, command, args, isGroup, 
     let groupMetaData = groupMeta || null;
     let groupAdminsList = groupAdmins || [];
     let isBotAdmin = false;
+    let actualIsAdmin = false; // The real admin status from group metadata
 
     if (isGroupMsg) {
         try {
@@ -121,8 +122,10 @@ module.exports = async function handleCommand(venom, m, command, args, isGroup, 
             const participants = groupMetaData?.participants || [];
             groupAdminsList = participants.filter(p => p.admin).map(p => p.id);
             isBotAdmin = groupAdminsList.includes(botJid);
+            actualIsAdmin = groupAdminsList.includes(sender); // Check if sender is actually admin
         } catch (error) {
             console.log('Failed to get group metadata:', error);
+            actualIsAdmin = isAdmin; // Fall back to passed isAdmin parameter
         }
     }
 
@@ -159,7 +162,7 @@ module.exports = async function handleCommand(venom, m, command, args, isGroup, 
     if (m.message) {
         const pushnameDisplay = m.pushName || "Unknown";
         const commandName = body.startsWith(prefix || '.') ? body.split(' ')[0] : null;
-        
+
         // 🕒 Time in EAT
         const date = new Date().toLocaleString("en-KE", {
             timeZone: "Africa/Nairobi",
@@ -221,7 +224,7 @@ ${isGroupMsg ? `🏠 GROUP: ${groupName}` : ""}
         console.log(bodyColor(info));
     }
 
-    
+
     // --- ANTI-TAG AUTO CHECK ---
     if (isGroup && global.settings?.antitag?.[from]?.enabled) {
         const settings = global.settings.antitag[from];
@@ -229,7 +232,7 @@ ${isGroupMsg ? `🏠 GROUP: ${groupName}` : ""}
         const groupAdmins = groupMeta.participants.filter(p => p.admin).map(p => p.id);
         const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
         const isBotAdmin = groupAdmins.includes(botNumber);
-        const isSenderAdmin = groupAdmins.includes(m.sender);
+        const isSenderAdmin = groupAdmins.includes(sender);
 
         const mentionedUsers = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
@@ -237,10 +240,10 @@ ${isGroupMsg ? `🏠 GROUP: ${groupName}` : ""}
             if (!isSenderAdmin && isBotAdmin) {
                 try {
                     await venom.sendMessage(from, { delete: m.key });
-                    await reply(` *Yooh! Tagging others is not allowed!*\nUser: @${m.sender.split('@')[0]}\nAction: ${settings.mode.toUpperCase()}`);
+                    await reply(` *Yooh! Tagging others is not allowed!*\nUser: @${sender.split('@')[0]}\nAction: ${settings.mode.toUpperCase()}`);
 
                     if (settings.mode === "kick") {
-                        await venom.groupParticipantsUpdate(from, [m.sender], "remove");
+                        await venom.groupParticipantsUpdate(from, [sender], "remove");
                     }
                 } catch (err) {
                     console.error("AntiTag Enforcement Error:", err);
@@ -264,7 +267,7 @@ if (isGroup && global.settings?.antilink?.[from]?.enabled && body) {
         const groupAdmins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
         const botNumber = venom.user.id.split(":")[0] + "@s.whatsapp.net";
         const isBotAdmin = groupAdmins.includes(botNumber);
-        const isSenderAdmin = groupAdmins.includes(senderJid);
+        const isSenderAdmin = groupAdmins.includes(sender);
 
         // ====== Ignore if sender is owner/admin/bot itself ======
         if (isOwner || isSenderAdmin || m.key.fromMe) return;
@@ -277,23 +280,23 @@ if (isGroup && global.settings?.antilink?.[from]?.enabled && body) {
         // ====== WARN MODE ======
         if (anti.mode === "warn") {
             global.warns = global.warns || {};
-            global.warns[senderJid] = (global.warns[senderJid] || 0) + 1;
+            global.warns[sender] = (global.warns[sender] || 0) + 1;
 
-            const warnCount = global.warns[senderJid];
+            const warnCount = global.warns[sender];
 
             await reply(
               `⚠️ *WARNING ${warnCount}/3*\n` +
-              `@${senderJid.split("@")[0]} sent a forbidden link.\n` +
+              `@${sender.split("@")[0]} sent a forbidden link.\n` +
               `If you reach *3 warnings*, you will be removed.`,
-              { mentions: [senderJid] }
+              { mentions: [sender] }
             );
 
             if (warnCount >= 3 && isBotAdmin) {
-                await venom.groupParticipantsUpdate(from, [senderJid], "remove");
-                global.warns[senderJid] = 0;
+                await venom.groupParticipantsUpdate(from, [sender], "remove");
+                global.warns[sender] = 0;
                 await reply(
-                  `🚫 @${senderJid.split("@")[0]} has been removed for repeated link violations.`,
-                  { mentions: [senderJid] }
+                  `🚫 @${sender.split("@")[0]} has been removed for repeated link violations.`,
+                  { mentions: [sender] }
                 );
             }
 
@@ -302,23 +305,23 @@ if (isGroup && global.settings?.antilink?.[from]?.enabled && body) {
 
         // ====== KICK MODE ======
         if (anti.mode === "kick" && isBotAdmin) {
-            await venom.groupParticipantsUpdate(from, [senderJid], "remove");
+            await venom.groupParticipantsUpdate(from, [sender], "remove");
             return reply(
-              `🚫 @${senderJid.split("@")[0]} sent a link and was kicked.`,
-              { mentions: [senderJid] }
+              `🚫 @${sender.split("@")[0]} sent a link and was kicked.`,
+              { mentions: [sender] }
             );
         }
 
         // ====== DELETE MODE (DEFAULT) ======
         reply(
-          `❌ Link deleted.\n@${senderJid.split("@")[0]} do not send links.`,
-          { mentions: [senderJid] }
+          `❌ Link deleted.\n@${sender.split("@")[0]} do not send links.`,
+          { mentions: [sender] }
         );
     }
 }
 
     // REDUCED: Auto-react with fewer emojis
-    if (global.settings?.areact?.enabled && global.settings.areact.chats[m.chat]) {
+    if (global.settings?.areact?.enabled && global.settings.areact.chats[from]) {
     const emojis = global.settings.areact.emojis || ["😂","🔥","😎","👍","💀","❤️","🤖","🥵","🙌","💯"];
     const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
 
@@ -341,26 +344,26 @@ if (isGroup && global.settings?.antilink?.[from]?.enabled && body) {
             const groupMetadata = await venom.groupMetadata(from);
             const groupAdmins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
             const isBotAdmin = groupAdmins.includes(botNumber);
-            const isSenderAdmin = groupAdmins.includes(m.sender);
+            const isSenderAdmin = groupAdmins.includes(sender);
 
             if (!isSenderAdmin) {
                 if (isBotAdmin) {
                     await venom.sendMessage(from, { delete: m.key });
                 }
 
-                antibad.warnings[m.sender] = (antibad.warnings[m.sender] || 0) + 1;
-                const warns = antibad.warnings[m.sender];
+                antibad.warnings[sender] = (antibad.warnings[sender] || 0) + 1;
+                const warns = antibad.warnings[sender];
                 const remaining = 3 - warns;
 
                 if (warns < 3) {
-                    await reply(` @${m.sender.split('@')[0]}, bad word detected!\nWord: *${found}*\nWarning: *${warns}/3*\n${remaining} more and you'll be kicked!`);
+                    await reply(` @${sender.split('@')[0]}, bad word detected!\nWord: *${found}*\nWarning: *${warns}/3*\n${remaining} more and you'll be kicked!`);
                 } else {
                     if (isBotAdmin) {
-                        await reply(` @${m.sender.split('@')[0]} has been kicked for repeated bad words.`);
-                        await venom.groupParticipantsUpdate(from, [m.sender], "remove");
-                        delete antibad.warnings[m.sender];
+                        await reply(` @${sender.split('@')[0]} has been kicked for repeated bad words.`);
+                        await venom.groupParticipantsUpdate(from, [sender], "remove");
+                        delete antibad.warnings[sender];
                     } else {
-                        await reply(` @${m.sender.split('@')[0]} reached 3 warnings, but I need admin rights to kick!`);
+                        await reply(` @${sender.split('@')[0]} reached 3 warnings, but I need admin rights to kick!`);
                     }
                 }
 
@@ -397,7 +400,7 @@ if (isGroup && global.settings?.antilink?.[from]?.enabled && body) {
     try {
         switch (command) {
             // ================= PING =================
-            
+
 case 'ping': {
     // Send the first message
     const calc = await reply("venom-xmd → Calculating...");
@@ -418,9 +421,8 @@ case 'ping': {
 // ==================== ANTILINK ====================
 case 'antilink': {
   try {
-    if (!isGroup) return reply("❌ This command only works in groups!");
-    if (!isOwner && !isAdmin) return reply("❌ Only the bot owner or group admins can toggle antilink!");
-    if (!isBotAdmin) return reply("❌ I must be admin to manage antilink!");
+    if (!isGroupMsg) return reply("❌ This command only works in groups!");
+    if (!isOwner && !actualIsAdmin) return reply("❌ Only the bot owner or group admins can toggle antilink!");
 
     const option = args[0]?.toLowerCase();
     const mode = args[1]?.toLowerCase() || "delete"; // delete | kick | warn
@@ -434,26 +436,25 @@ case 'antilink': {
       saveSettings(global.settings);
       return reply(
         `✅ Antilink enabled!\nMode: ${mode.toUpperCase()}\n` +
-        (mode === "kick"
-          ? "Links will be deleted and user kicked."
-          : mode === "warn"
-          ? "Users will be warned and kicked after repeated violations."
-          : "Links will only be deleted.")
+        (mode === "kick" ? "Links will be deleted and user kicked.\n⚠️ Note: I need admin rights to kick users" :
+         mode === "warn" ? "Users will be warned and kicked after repeated violations.\n⚠️ Note: I need admin rights to kick users" :
+         "Links will only be deleted.\n⚠️ Note: I need admin rights to delete messages")
       );
     }
 
     if (option === "off") {
       delete global.settings.antilink[groupId];
       saveSettings(global.settings);
-      return reply("❌ Antilink disabled for this group.");
+      return reply("✅ Antilink disabled for this group.");
     }
 
     const current = global.settings.antilink[groupId];
     reply(
       `📌 Antilink Settings for This Group\n` +
-      `Status: ${current?.enabled ? "ON" : "OFF"}\n` +
-      `Mode: ${current?.mode?.toUpperCase() || "DELETE"}\n\n` +
-      `Usage:\n` +
+      `Status: ${current?.enabled ? "✅ ON" : "❌ OFF"}\n` +
+      `Mode: ${current?.mode?.toUpperCase() || "DELETE"}\n` +
+      `Bot Admin Status: ${isBotAdmin ? "✅ Yes" : "❌ No"}\n\n` +
+      `*Usage:*\n` +
       `.antilink on [delete/kick/warn]\n` +
       `.antilink off`
     );
@@ -465,118 +466,26 @@ case 'antilink': {
   break;
 }
 
-
-// ===== LAST SEEN COMMAND =====
-case 'lastseen':
-case 'ls': {
-    if (!isOwner) return reply("❌ This command is for owner-only.");
-    
-    if (args.length === 0) {
-        // Show current status
-        const enabled = global.settings?.lastseen?.enabled ? "✅ ON" : "❌ OFF";
-        const date = global.settings?.lastseen?.date || "1990-01-01";
-        const time = global.settings?.lastseen?.time || "00:00:00";
-        
-        await reply(`🕰️ *Last Seen*: ${enabled}\n📅 Date: ${date}\n⏰ Time: ${time}\n\n` +
-                   `*Usage:*\n• ${prefix}lastseen on/off\n• ${prefix}lastseen 1970-01-01 00:00:00`);
-        break;
-    }
-    
-    // Check if first arg is a date (contains hyphen)
-    if (args[0].includes('-') && args.length >= 2) {
-        // Set custom date/time
-        const dateStr = args[0];
-        const timeStr = args[1];
-        
-        // Validate formats
-        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-        const timeRegex = /^\d{2}:\d{2}(:\d{2})?$/;
-        
-        if (!dateRegex.test(dateStr)) {
-            await reply("❌ Invalid date! Use: yyyy-mm-dd");
-            break;
-        }
-        
-        if (!timeRegex.test(timeStr)) {
-            await reply("❌ Invalid time! Use: hh:mm or hh:mm:ss");
-            break;
-        }
-        
-        // Add seconds if not provided
-        const fullTime = timeStr.includes(':') && timeStr.split(':').length === 2 ? timeStr + ':00' : timeStr;
-        
-        // Test if valid
-        const testDate = new Date(`${dateStr}T${fullTime}`);
-        if (isNaN(testDate.getTime())) {
-            await reply("❌ Invalid date/time!");
-            break;
-        }
-        
-        // Save settings
-        global.settings.lastseen = {
-            enabled: true,
-            date: dateStr,
-            time: fullTime
-        };
-        
-        saveSettings(global.settings);
-        await reply(`✅ Last Seen set to: ${dateStr} ${fullTime}\n(Enabled automatically)`);
-        
-    } else {
-        // Toggle on/off
-        const action = args[0].toLowerCase();
-        
-        if (action === 'on' || action === 'enable') {
-            if (!global.settings.lastseen) {
-                global.settings.lastseen = {
-                    enabled: true,
-                    date: "1990-01-01",
-                    time: "00:00:00"
-                };
-            } else {
-                global.settings.lastseen.enabled = true;
-            }
-            
-            saveSettings(global.settings);
-            await reply("✅ Last Seen ON");
-            
-        } else if (action === 'off' || action === 'disable') {
-            if (global.settings.lastseen) {
-                global.settings.lastseen.enabled = false;
-            } else {
-                global.settings.lastseen = { enabled: false };
-            }
-            
-            saveSettings(global.settings);
-            await reply("✅ Last Seen OFF");
-            
-        } else {
-            await reply(`❌ Usage:\n• ${prefix}lastseen on/off\n• ${prefix}lastseen 1970-01-01 00:00:00`);
-        }
-    }
-    break;
-}
-
 // ===== AUTO-BIO COMMAND =====
 case 'autobio': {
     if (!isOwner) return reply("❌ This command is for owner-only.");
-    
+
     if (args.length === 0) {
         const status = global.settings?.autobio?.enabled ? "✅ ON" : "❌ OFF";
         await reply(`📝 *Auto-Bio*: ${status}\n\n` +
                    `Usage: ${prefix}autobio on/off`);
         break;
     }
-    
+
     const action = args[0].toLowerCase();
-    
+
     if (action === 'on') {
         global.settings.autobio = {
             enabled: true,
             lastUpdate: 0
         };
         saveSettings(global.settings);
-        
+
         // Update bio immediately
         try {
             const uptime = formatUptime(process.uptime());
@@ -587,7 +496,7 @@ case 'autobio': {
         } catch (e) {
             await reply("✅ Auto-Bio ON\n⚠️ Failed to update bio: " + e.message);
         }
-        
+
     } else if (action === 'off') {
         if (global.settings.autobio) {
             global.settings.autobio.enabled = false;
@@ -596,7 +505,7 @@ case 'autobio': {
         }
         saveSettings(global.settings);
         await reply("✅ Auto-Bio OFF");
-        
+
     } else {
         await reply(`❌ Usage: ${prefix}autobio on/off`);
     }
@@ -606,33 +515,34 @@ case 'autobio': {
 // ===== OFFLINE COMMAND =====
 case 'offline': {
     if (!isOwner) return reply("❌ This command is for owner-only.");
-    
+
     if (args.length === 0) {
         const enabled = global.settings?.offline?.enabled ? "✅ ON" : "❌ OFF";
-        await reply(`📴 *Offline Mode*: ${enabled}\n\n` +
-                   `When ON: Bot shows as completely offline (no last seen)\n` +
-                   `When OFF: Bot shows normal online/last seen\n\n` +
+        const status = enabled === "✅ ON" ? "Completely offline (unavailable)" : "Normal online status";
+        await reply(`📴 *Offline Mode*: ${enabled}\nStatus: ${status}\n\n` +
+                   `When ON: Bot shows as completely offline\n` +
+                   `When OFF: Bot shows normal online status (real last seen)\n\n` +
                    `*Usage:* ${prefix}offline on/off`);
         break;
     }
-    
+
     const action = args[0].toLowerCase();
-    
+
     if (action === 'on') {
         // Turn offline mode ON
         global.settings.offline = {
             enabled: true
         };
         saveSettings(global.settings);
-        
+
         // Immediately set to unavailable
         try {
             await venom.sendPresenceUpdate('unavailable');
-            await reply("✅ Offline Mode ON\nBot now shows as completely offline (no last seen)");
+            await reply("✅ Offline Mode ON\nBot now shows as completely offline (unavailable)");
         } catch (e) {
             await reply("✅ Offline Mode ON\n⚠️ Could not set presence: " + e.message);
         }
-        
+
     } else if (action === 'off') {
         // Turn offline mode OFF
         if (global.settings.offline) {
@@ -641,25 +551,26 @@ case 'offline': {
             global.settings.offline = { enabled: false };
         }
         saveSettings(global.settings);
-        
-        // Set back to available
+
+        // Set back to available (shows real last seen)
         try {
             await venom.sendPresenceUpdate('available');
-            await reply("✅ Offline Mode OFF\nBot now shows normal online status");
+            await reply("✅ Offline Mode OFF\nBot now shows normal online status (real last seen)");
         } catch (e) {
             await reply("✅ Offline Mode OFF\n⚠️ Could not set presence: " + e.message);
         }
-        
+
     } else {
         await reply(`❌ Usage: ${prefix}offline on/off`);
     }
     break;
 }
+
 // ==================== REJECT ====================
 case 'reject': {
   try {
-    if (!isGroup) return reply("❌ This command only works in groups!");
-    if (!isOwner && !isAdmin) return reply("❌ Only owner or admins can reject requests!");
+    if (!isGroupMsg) return reply("❌ This command only works in groups!");
+    if (!isOwner && !actualIsAdmin) return reply("❌ Only owner or admins can reject requests!");
     if (!isBotAdmin) return reply("❌ I must be admin to reject join requests!");
 
     const requestList = await venom.groupRequestParticipantsList(from);
@@ -684,8 +595,8 @@ case 'reject': {
 // ==================== APPROVE ====================
 case 'approve': {
   try {
-    if (!isGroup) return reply("❌ This command only works in groups!");
-    if (!isOwner && !isAdmin) return reply("❌ Only owner or admins can approve requests!");
+    if (!isGroupMsg) return reply("❌ This command only works in groups!");
+    if (!isOwner && !actualIsAdmin) return reply("❌ Only owner or admins can approve requests!");
     if (!isBotAdmin) return reply("❌ I must be admin to approve join requests!");
 
     const requestList = await venom.groupRequestParticipantsList(from);
@@ -745,6 +656,8 @@ case 'clear': {
   }
   break;
 }
+
+
 
 case 'playdoc': {
     try {
