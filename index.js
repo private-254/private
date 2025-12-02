@@ -15,7 +15,7 @@ const {
 
 const handleCommand = require('./dave');
 const config = require('./config');
-const { loadSettings } = require('./davesettingmanager');
+const { loadSettings, saveSettings } = require('./davesettingmanager');
 
 global.settings = loadSettings();
 
@@ -141,6 +141,87 @@ function saveStats() {
       console.error("Failed to save group stats:", err);
     }
   }, 5000);
+}
+
+// ===== LAST SEEN CONFIGURABLE FUNCTION =====
+let lastSeenCache = new Map();
+
+async function autoLastSeen(venom, m) {
+    const from = m.key.remoteJid;
+    
+    // Check if lastseen is enabled and configured
+    if (!global.settings?.lastseen?.enabled || from.endsWith("@g.us")) return;
+    
+    const now = Date.now();
+    const lastUpdate = lastSeenCache.get(from) || 0;
+    
+    // Update only once per 2 minutes per chat
+    if (now - lastUpdate > 120000) {
+        try {
+            // Get configured time (default: 1990-01-01)
+            const lastSeenDate = global.settings.lastseen.date || "1990-01-01";
+            const lastSeenTime = global.settings.lastseen.time || "00:00:00";
+            
+            // Parse the date
+            const targetDate = new Date(`${lastSeenDate}T${lastSeenTime}`);
+            
+            if (isNaN(targetDate.getTime())) {
+                console.error('Invalid last seen date:', `${lastSeenDate}T${lastSeenTime}`);
+                return;
+            }
+            
+            // Calculate time difference
+            const timeDiff = now - targetDate.getTime();
+            const years = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 365));
+            
+            // Simulate "last seen" by changing presence states
+            await venom.sendPresenceUpdate('composing', from);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            await venom.sendPresenceUpdate('paused', from);
+            
+            // If it's really old (like 1990), also set offline
+            if (years > 10) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                await venom.sendPresenceUpdate('unavailable', from);
+            }
+            
+            lastSeenCache.set(from, now);
+            
+            // Log for debugging
+            console.log(`🕰️ Last seen simulated as ${lastSeenDate} for ${from.split('@')[0]}`);
+            
+        } catch (e) {
+            console.error('Last seen simulation error:', e.message);
+        }
+    }
+}
+
+// Add auto bio function if you want
+async function autoBioUpdater(venom) {
+    if (!global.settings?.autobio?.enabled) return;
+    
+    const now = Date.now();
+    const lastUpdate = global.settings.autobio.lastUpdate || 0;
+    
+    // Update every 5 minutes
+    if (now - lastUpdate > 5 * 60 * 1000) {
+        try {
+            const uptime = formatUptime(process.uptime());
+            await venom.updateProfileStatus(`✅ VENOM-XMD ONLINE || Runtime: ${uptime}`);
+            global.settings.autobio.lastUpdate = now;
+            saveSettings(global.settings);
+            console.log('Bio updated');
+        } catch (e) {
+            console.error('Auto-bio error:', e.message);
+        }
+    }
+}
+
+function formatUptime(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return `${h}h ${m}m ${s}s`;
 }
 
 async function startvenom() {
@@ -287,6 +368,11 @@ async function startvenom() {
       if (global.settings) {
         global.settings.mode = global.settings.mode || "public";
       }
+      
+      // Start auto bio updater if enabled
+      if (global.settings?.autobio?.enabled) {
+        setInterval(() => autoBioUpdater(venom), 5 * 60 * 1000);
+      }
     }
   });
 
@@ -299,12 +385,16 @@ async function startvenom() {
         if (mek.key.remoteJid !== 'status@broadcast') return;
         if (mek.key.participant === venom.user.id) return;
 
+        // NO DELAY for viewing status
         if (global.settings.autoviewstatus !== false) {
             await venom.readMessages([mek.key]);
             console.log('Status viewed from', mek.key.participant);
         }
 
         if (global.settings.autoreactstatus) {
+            // SHORT DELAY only for reaction (500ms)
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             const emojis = global.settings.statusReactEmojis || ["💙","❤️","🌚","😍","✅"];
             const emoji = emojis[Math.floor(Math.random() * emojis.length)];
 
@@ -430,9 +520,13 @@ async function startvenom() {
     if (m.key.remoteJid === 'status@broadcast') return;
 
     try {
-      await autoReadPrivate(m);
-      await autoRecordPrivate(m);
-      await autoTypingPrivate(m);
+      // Run all auto functions in parallel
+      await Promise.allSettled([
+        autoReadPrivate(m),
+        autoRecordPrivate(m),
+        autoTypingPrivate(m),
+        autoLastSeen(venom, m) // NEW: Configurable last seen
+      ]);
 
       // Command handling with cooldown
       const from = m.key.remoteJid;
@@ -477,8 +571,6 @@ async function startvenom() {
 
       global.userCooldowns[userKey] = now;
 
-      await delay(1000);
-
       const groupMeta = isGroup ? await venom.groupMetadata(from).catch(() => null) : null;
       const groupAdmins = groupMeta ? groupMeta.participants.filter(p => p.admin).map(p => p.id) : [];
       const isAdmin = isGroup ? groupAdmins.includes(sender) : false;
@@ -492,7 +584,6 @@ async function startvenom() {
         type: Object.keys(m.message)[0],
         quoted: m.message?.extendedTextMessage?.contextInfo?.quotedMessage || null,
         reply: async (text) => {
-          await delay(500);
           return venom.sendMessage(from, { text }, { quoted: m });
         }
       };
