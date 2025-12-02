@@ -143,58 +143,6 @@ function saveStats() {
   }, 5000);
 }
 
-// ===== LAST SEEN CONFIGURABLE FUNCTION =====
-let lastSeenCache = new Map();
-
-async function autoLastSeen(venom, m) {
-    const from = m.key.remoteJid;
-    
-    // Check if lastseen is enabled and configured
-    if (!global.settings?.lastseen?.enabled || from.endsWith("@g.us")) return;
-    
-    const now = Date.now();
-    const lastUpdate = lastSeenCache.get(from) || 0;
-    
-    // Update only once per 2 minutes per chat
-    if (now - lastUpdate > 120000) {
-        try {
-            // Get configured time (default: 1990-01-01)
-            const lastSeenDate = global.settings.lastseen.date || "1990-01-01";
-            const lastSeenTime = global.settings.lastseen.time || "00:00:00";
-            
-            // Parse the date
-            const targetDate = new Date(`${lastSeenDate}T${lastSeenTime}`);
-            
-            if (isNaN(targetDate.getTime())) {
-                console.error('Invalid last seen date:', `${lastSeenDate}T${lastSeenTime}`);
-                return;
-            }
-            
-            // Calculate time difference
-            const timeDiff = now - targetDate.getTime();
-            const years = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 365));
-            
-            // Simulate "last seen" by changing presence states
-            await venom.sendPresenceUpdate('composing', from);
-            await new Promise(resolve => setTimeout(resolve, 100));
-            await venom.sendPresenceUpdate('paused', from);
-            
-            // If it's really old (like 1990), also set offline
-            if (years > 10) {
-                await new Promise(resolve => setTimeout(resolve, 200));
-                await venom.sendPresenceUpdate('unavailable', from);
-            }
-            
-            lastSeenCache.set(from, now);
-            
-            // Log for debugging
-            console.log(`🕰️ Last seen simulated as ${lastSeenDate} for ${from.split('@')[0]}`);
-            
-        } catch (e) {
-            console.error('Last seen simulation error:', e.message);
-        }
-    }
-}
 
 // Add auto bio function if you want
 async function autoBioUpdater(venom) {
