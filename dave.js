@@ -465,6 +465,196 @@ case 'antilink': {
   break;
 }
 
+
+// ===== LAST SEEN COMMAND =====
+case 'lastseen':
+case 'ls': {
+    if (!isOwner) return reply("❌ This command is for owner-only.");
+    
+    if (args.length === 0) {
+        // Show current status
+        const enabled = global.settings?.lastseen?.enabled ? "✅ ON" : "❌ OFF";
+        const date = global.settings?.lastseen?.date || "1990-01-01";
+        const time = global.settings?.lastseen?.time || "00:00:00";
+        
+        await reply(`🕰️ *Last Seen*: ${enabled}\n📅 Date: ${date}\n⏰ Time: ${time}\n\n` +
+                   `*Usage:*\n• ${prefix}lastseen on/off\n• ${prefix}lastseen 1970-01-01 00:00:00`);
+        break;
+    }
+    
+    // Check if first arg is a date (contains hyphen)
+    if (args[0].includes('-') && args.length >= 2) {
+        // Set custom date/time
+        const dateStr = args[0];
+        const timeStr = args[1];
+        
+        // Validate formats
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        const timeRegex = /^\d{2}:\d{2}(:\d{2})?$/;
+        
+        if (!dateRegex.test(dateStr)) {
+            await reply("❌ Invalid date! Use: yyyy-mm-dd");
+            break;
+        }
+        
+        if (!timeRegex.test(timeStr)) {
+            await reply("❌ Invalid time! Use: hh:mm or hh:mm:ss");
+            break;
+        }
+        
+        // Add seconds if not provided
+        const fullTime = timeStr.includes(':') && timeStr.split(':').length === 2 ? timeStr + ':00' : timeStr;
+        
+        // Test if valid
+        const testDate = new Date(`${dateStr}T${fullTime}`);
+        if (isNaN(testDate.getTime())) {
+            await reply("❌ Invalid date/time!");
+            break;
+        }
+        
+        // Save settings
+        global.settings.lastseen = {
+            enabled: true,
+            date: dateStr,
+            time: fullTime
+        };
+        
+        saveSettings(global.settings);
+        await reply(`✅ Last Seen set to: ${dateStr} ${fullTime}\n(Enabled automatically)`);
+        
+    } else {
+        // Toggle on/off
+        const action = args[0].toLowerCase();
+        
+        if (action === 'on' || action === 'enable') {
+            if (!global.settings.lastseen) {
+                global.settings.lastseen = {
+                    enabled: true,
+                    date: "1990-01-01",
+                    time: "00:00:00"
+                };
+            } else {
+                global.settings.lastseen.enabled = true;
+            }
+            
+            saveSettings(global.settings);
+            await reply("✅ Last Seen ON");
+            
+        } else if (action === 'off' || action === 'disable') {
+            if (global.settings.lastseen) {
+                global.settings.lastseen.enabled = false;
+            } else {
+                global.settings.lastseen = { enabled: false };
+            }
+            
+            saveSettings(global.settings);
+            await reply("✅ Last Seen OFF");
+            
+        } else {
+            await reply(`❌ Usage:\n• ${prefix}lastseen on/off\n• ${prefix}lastseen 1970-01-01 00:00:00`);
+        }
+    }
+    break;
+}
+
+// ===== AUTO-BIO COMMAND =====
+case 'autobio': {
+    if (!isOwner) return reply("❌ This command is for owner-only.");
+    
+    if (args.length === 0) {
+        const status = global.settings?.autobio?.enabled ? "✅ ON" : "❌ OFF";
+        await reply(`📝 *Auto-Bio*: ${status}\n\n` +
+                   `Usage: ${prefix}autobio on/off`);
+        break;
+    }
+    
+    const action = args[0].toLowerCase();
+    
+    if (action === 'on') {
+        global.settings.autobio = {
+            enabled: true,
+            lastUpdate: 0
+        };
+        saveSettings(global.settings);
+        
+        // Update bio immediately
+        try {
+            const uptime = formatUptime(process.uptime());
+            await venom.updateProfileStatus(`✅ VENOM-XMD ONLINE || Runtime: ${uptime}`);
+            global.settings.autobio.lastUpdate = Date.now();
+            saveSettings(global.settings);
+            await reply("✅ Auto-Bio ON\nBio updated!");
+        } catch (e) {
+            await reply("✅ Auto-Bio ON\n⚠️ Failed to update bio: " + e.message);
+        }
+        
+    } else if (action === 'off') {
+        if (global.settings.autobio) {
+            global.settings.autobio.enabled = false;
+        } else {
+            global.settings.autobio = { enabled: false };
+        }
+        saveSettings(global.settings);
+        await reply("✅ Auto-Bio OFF");
+        
+    } else {
+        await reply(`❌ Usage: ${prefix}autobio on/off`);
+    }
+    break;
+}
+
+// ===== OFFLINE COMMAND =====
+case 'offline': {
+    if (!isOwner) return reply("❌ This command is for owner-only.");
+    
+    if (args.length === 0) {
+        const enabled = global.settings?.offline?.enabled ? "✅ ON" : "❌ OFF";
+        await reply(`📴 *Offline Mode*: ${enabled}\n\n` +
+                   `When ON: Bot shows as completely offline (no last seen)\n` +
+                   `When OFF: Bot shows normal online/last seen\n\n` +
+                   `*Usage:* ${prefix}offline on/off`);
+        break;
+    }
+    
+    const action = args[0].toLowerCase();
+    
+    if (action === 'on') {
+        // Turn offline mode ON
+        global.settings.offline = {
+            enabled: true
+        };
+        saveSettings(global.settings);
+        
+        // Immediately set to unavailable
+        try {
+            await venom.sendPresenceUpdate('unavailable');
+            await reply("✅ Offline Mode ON\nBot now shows as completely offline (no last seen)");
+        } catch (e) {
+            await reply("✅ Offline Mode ON\n⚠️ Could not set presence: " + e.message);
+        }
+        
+    } else if (action === 'off') {
+        // Turn offline mode OFF
+        if (global.settings.offline) {
+            global.settings.offline.enabled = false;
+        } else {
+            global.settings.offline = { enabled: false };
+        }
+        saveSettings(global.settings);
+        
+        // Set back to available
+        try {
+            await venom.sendPresenceUpdate('available');
+            await reply("✅ Offline Mode OFF\nBot now shows normal online status");
+        } catch (e) {
+            await reply("✅ Offline Mode OFF\n⚠️ Could not set presence: " + e.message);
+        }
+        
+    } else {
+        await reply(`❌ Usage: ${prefix}offline on/off`);
+    }
+    break;
+}
 // ==================== REJECT ====================
 case 'reject': {
   try {
