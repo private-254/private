@@ -75,7 +75,7 @@ function jidDecode(jid) {
 }
 
 
-module.exports = async function handleCommand(venom, m, command, groupAdmins, isBotAdmins, groupMeta, config, prefix) {
+module.exports = async function handleCommand(venom, m, command, args, isGroup, isAdmin, groupAdmins, groupMeta, jidDecode, config, prefix) {
     
     // ===== FIXED JID DECODER =====  
     venom.decodeJid = (jid) => {  
@@ -92,10 +92,10 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
 
     // ===== CHAT INFO =====  
     const from = venom.decodeJid(m.key.remoteJid);  
-    const isGroup = from?.endsWith?.("@g.us") || false;  
+    const isGroupMsg = from?.endsWith?.("@g.us") || false;  
 
     // ===== SENDER INFO =====  
-    const sender = isGroup  
+    const sender = isGroupMsg  
         ? venom.decodeJid(m.key.participant || m.key.remoteJid) // group sender  
         : venom.decodeJid(m.key.fromMe ? venom.user.id : m.key.remoteJid); // private chat  
 
@@ -111,17 +111,15 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
     const isOwner = ownerNumbers.includes(senderNumber);
 
     // ===== GROUP ADMIN CHECKS =====  
-    let groupMetaData = null;
-    let groupAdminsList = [];
-    let isAdmin = false;
+    let groupMetaData = groupMeta || null;
+    let groupAdminsList = groupAdmins || [];
     let isBotAdmin = false;
 
-    if (isGroup) {
+    if (isGroupMsg) {
         try {
-            groupMetaData = await venom.groupMetadata(from);
+            groupMetaData = groupMetaData || await venom.groupMetadata(from);
             const participants = groupMetaData?.participants || [];
             groupAdminsList = participants.filter(p => p.admin).map(p => p.id);
-            isAdmin = groupAdminsList.includes(sender);
             isBotAdmin = groupAdminsList.includes(botJid);
         } catch (error) {
             console.log('Failed to get group metadata:', error);
@@ -146,8 +144,7 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
     const quotedSender = venom.decodeJid(ctx.participant || from);
     const mentioned = ctx.mentionedJid?.map(venom.decodeJid) || [];
 
-    const body = m.message.conversation || m.message.extendedTextMessage?.text || '';
-    const args = body.trim().split(/ +/).slice(1);
+    const body = m.body || m.message.conversation || m.message.extendedTextMessage?.text || '';
     const q = args.join(" ");
     const text = args.join(" ");
     const time = new Date().toLocaleTimeString();
@@ -160,10 +157,8 @@ module.exports = async function handleCommand(venom, m, command, groupAdmins, is
     }
 
     if (m.message) {
-        const isGroupMsg = m.isGroup;
-        const body = m.body || m.messageStubType || "—";
         const pushnameDisplay = m.pushName || "Unknown";
-        const command = body.startsWith(prefix) ? body.split(' ')[0] : null;
+        const commandName = body.startsWith(prefix || '.') ? body.split(' ')[0] : null;
         
         // 🕒 Time in EAT
         const date = new Date().toLocaleString("en-KE", {
