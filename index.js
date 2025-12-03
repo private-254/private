@@ -339,12 +339,6 @@ async function startvenom() {
       if (global.settings?.autobio?.enabled) {
         setInterval(() => autoBioUpdater(venom), 5 * 60 * 1000);
       }
-
-      // Apply offline mode if enabled
-      if (global.settings?.offline?.enabled) {
-        await venom.sendPresenceUpdate('unavailable');
-        console.log("Bot started in offline mode");
-      }
     }
   });
 
@@ -474,14 +468,12 @@ async function startvenom() {
     if (m.key.remoteJid === 'status@broadcast') return;
 
     try {
-      // Run auto functions in parallel (only if NOT in offline mode)
-      if (!global.settings?.offline?.enabled) {
-        await Promise.allSettled([
-          autoReadPrivate(m),
-          autoRecordPrivate(m),
-          autoTypingPrivate(m)
-        ]);
-      }
+      // Run auto functions in parallel
+      await Promise.allSettled([
+        autoReadPrivate(m),
+        autoRecordPrivate(m),
+        autoTypingPrivate(m)
+      ]);
 
       // Command handling with cooldown
       const from = m.key.remoteJid;
