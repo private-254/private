@@ -171,25 +171,6 @@ function formatUptime(seconds) {
     return `${h}h ${m}m ${s}s`;
 }
 
-// AUTO FUNCTIONS (keep these)
-async function autoReadPrivate(m) {
-    const from = m.key.remoteJid;
-    if (!global.settings?.autoread?.enabled || from.endsWith("@g.us")) return;
-    await venom.readMessages([m.key]).catch(console.error);
-}
-
-async function autoRecordPrivate(m) {
-    const from = m.key.remoteJid;
-    if (!global.settings?.autorecord?.enabled || from.endsWith("@g.us")) return;
-    await venom.sendPresenceUpdate("recording", from).catch(console.error);
-}
-
-async function autoTypingPrivate(m) {
-    const from = m.key.remoteJid;
-    if (!global.settings?.autotyping?.enabled || from.endsWith("@g.us")) return;
-    await venom.sendPresenceUpdate("composing", from).catch(console.error);
-}
-
 async function startvenom() {
   const { state, saveCreds } = await useMultiFileAuthState('./session');
   const { version } = await fetchLatestBaileysVersion();
@@ -209,6 +190,25 @@ async function startvenom() {
     browser: ["Ubuntu", "Chrome", "20.0.00"],
     syncFullHistory: true 
   });
+
+  // AUTO FUNCTIONS - MOVED INSIDE HERE WHERE VENOM IS AVAILABLE
+  async function autoReadPrivate(m) {
+      const from = m.key.remoteJid;
+      if (!global.settings?.autoread?.enabled || from.endsWith("@g.us")) return;
+      await venom.readMessages([m.key]).catch(console.error);
+  }
+
+  async function autoRecordPrivate(m) {
+      const from = m.key.remoteJid;
+      if (!global.settings?.autorecord?.enabled || from.endsWith("@g.us")) return;
+      await venom.sendPresenceUpdate("recording", from).catch(console.error);
+  }
+
+  async function autoTypingPrivate(m) {
+      const from = m.key.remoteJid;
+      if (!global.settings?.autotyping?.enabled || from.endsWith("@g.us")) return;
+      await venom.sendPresenceUpdate("composing", from).catch(console.error);
+  }
 
   venom.ev.on('creds.update', saveCreds);
   store.bind(venom.ev);
@@ -261,21 +261,20 @@ async function startvenom() {
       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
       log.error('Connection closed.');
       if (shouldReconnect) setTimeout(() => startvenom(), 5000);
+    } else if (connection === 'open') {
+      const botNumber = venom.user.id.split("@")[0];
+      log.success(`Bot connected as ${chalk.green(botNumber)}`);
+      try { rl.close(); } catch (e) {}
 
-   } else if (connection === 'open') {
-    const botNumber = venom.user.id.split("@")[0];
-
-    // Set owner dynamically WITH FULL JID
-    global.owner = [`${botNumber}@s.whatsapp.net`];
-
-    log.success(`Bot connected as ${chalk.green(botNumber)}`);
-    try { rl.close(); } catch (e) {}
-
-    await delay(3000);
-
-    try {
-        if (global.settings && global.settings.showConnectMsg !== false) {
-            const ownerJid = `${botNumber}@s.whatsapp.net`;
+      // Set owner properly
+      global.owner = [botNumber]; // Store just the number
+      
+      // ✅ Send DM to paired number after successful pairing
+      setTimeout(async () => {
+        try {
+          const ownerJid = `${botNumber}@s.whatsapp.net`; // Create full JID
+          
+          if (global.settings && global.settings.showConnectMsg !== false) {
             const message = `
 ╔═══════════════════════
 ║      VENOM-XMD
@@ -287,12 +286,13 @@ async function startvenom() {
 ║ Connected at: ${new Date().toLocaleString()}
 ╚═══════════════════════
 `;
-          await venom.sendMessage(ownerJid, { text: message });
-          console.log("Welcome message sent.");
+            await venom.sendMessage(ownerJid, { text: message });
+            console.log("Welcome message sent.");
+          }
+        } catch (error) {
+          console.error("Failed to send DM:", error);
         }
-      } catch (error) {
-        console.error("Failed to send DM:", error);
-      }
+      }, 3000);
 
       await delay(4000);
 
