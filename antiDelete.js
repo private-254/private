@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { downloadContentFromMessage } = require('@trashcore/baileys');
+const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
 module.exports = function initAntiDelete(venom, opts = {}) {
 
