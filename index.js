@@ -44,7 +44,7 @@ function log(message, color = 'white', isError = false) {
     const prefix = chalk.magenta.bold('[ DAVE - X ]');
     const logFunc = isError ? console.error : console.log;
     const coloredMessage = chalk[color](message);
-    
+
     if (message.includes('\n') || message.includes('════')) {
         logFunc(prefix, coloredMessage);
     } else {
@@ -125,7 +125,7 @@ function ensureEnv(envPath) {
     if (!fsSync.existsSync(envPath)) {
       fsSync.writeFileSync(envPath, defaults.join("\n") + "\n");
       console.log(chalk.green(`[ ✅ ] .env created at ${envPath}`));
-      console.log(chalk.yellow("Set SESSION_ID to Xguru~<base64 json creds> for seamless login."));
+      console.log(chalk.yellow("Set SESSION_ID to DAVE-AI~<base64 json creds> for seamless login."));
       return;
     }
     const existing = fsSync.readFileSync(envPath, "utf8");
@@ -147,7 +147,7 @@ require("dotenv").config({ path: ENV_PATH });
 // Temp directory management
 const tempDir = path.join(os.tmpdir(), "cache-temp");
 if (!fsSync.existsSync(tempDir)) {
-  fsSync.mkdirSync(tempDir);
+  fsSync.mkdirSync(tempDir, { recursive: true });
 }
 const clearTempDir = () => {
   fsSync.readdir(tempDir, (err, files) => {
@@ -190,7 +190,7 @@ async function loadSession() {
 
     sessionId = await new Promise((resolve) => {
       rl.question(
-        chalk.cyan("🔐 Paste your SESSION_ID (Xguru~xxxx): "),
+        chalk.cyan("🔐 Paste your SESSION_ID (DAVE-AI~xxxx): "),
         (answer) => {
           rl.close();
           resolve(answer.trim());
@@ -205,14 +205,14 @@ async function loadSession() {
     process.exit(1);
   }
 
-  if (!sessionId.startsWith("DAVE-AI:~")) {
+  if (!sessionId.startsWith("DAVE-AI~")) {
     console.error(chalk.red("❌ Invalid SESSION_ID format"));
     process.exit(1);
   }
 
   try {
     console.log(chalk.yellow("[ ⏳ ] Decoding session..."));
-    const decoded = Buffer.from(sessionId.replace("DAVE-AI:~", ""), "base64");
+    const decoded = Buffer.from(sessionId.replace("DAVE-AI~", ""), "base64");
     fsSync.writeFileSync(credsPath, decoded);
     console.log(chalk.green("[ ✅ ] Session loaded successfully"));
     return JSON.parse(decoded.toString());
@@ -235,7 +235,7 @@ async function connectWithPairing(malvin, useMobile) {
   console.log(chalk.green("┌" + "─".repeat(46) + "┐"));
   console.log(chalk.green("│ ") + chalk.bold("Enter WhatsApp number to receive pairing code") + chalk.green(" │"));
   console.log(chalk.green("└" + "─".repeat(46) + "┘"));
-  
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -277,8 +277,8 @@ async function connectToWA() {
 
   const msgRetryCounterCache = new NodeCache();
 
-  // ✅ FIX
-  fs.mkdirSync(sessionDir, { recursive: true });
+  // ✅ FIXED: Removed redundant fs.mkdirSync call that was causing the error
+  // Directory is already created at line 110
 
   const { version } = await fetchLatestBaileysVersion();
 
@@ -307,7 +307,6 @@ async function connectToWA() {
     },
     msgRetryCounterCache,
   });
-
 
   if (pairingCode && !state.creds.registered) {
     await connectWithPairing(malvin, useMobile);
