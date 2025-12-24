@@ -11,6 +11,7 @@ process.on("unhandledRejection", (reason, p) => {
 
 const axios = require("axios");
 const pino = require("pino");
+const NodeCache = require("node-cache");
 const config = require("./settings");
 const {
   default: makeWASocket,
