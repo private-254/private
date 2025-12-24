@@ -39,6 +39,18 @@ const {
 } = require(config.BAILEYS);
 
 const l = console.log;
+function log(message, color = 'white', isError = false) {
+    const prefix = chalk.magenta.bold('[ DAVE - X ]');
+    const logFunc = isError ? console.error : console.log;
+    const coloredMessage = chalk[color](message);
+    
+    if (message.includes('\n') || message.includes('════')) {
+        logFunc(prefix, coloredMessage);
+    } else {
+         logFunc(`${prefix} ${coloredMessage}`);
+    }
+}
+
 const {
   getBuffer,
   getGroupAdmins,
