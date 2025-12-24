@@ -269,11 +269,17 @@ async function connectToWA() {
   console.log(chalk.cyan("[ 🟠 ] Connecting to WhatsApp ⏳️..."));
 
   const creds = await loadSession();
-  const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, "./sessions"), {
-    creds: creds || undefined,
-  });
+
+  const { state, saveCreds } = await useMultiFileAuthState(
+    path.join(__dirname, "./sessions"),
+    { creds: creds || undefined }
+  );
+
   const msgRetryCounterCache = new NodeCache();
-  await fs.promises.mkdir(sessionDir, { recursive: true });
+
+  // ✅ FIX
+  fs.mkdirSync(sessionDir, { recursive: true });
+
   const { version } = await fetchLatestBaileysVersion();
 
   const pairingCode = config.PAIRING_CODE === "true" || process.argv.includes("--pairing-code");
@@ -285,19 +291,22 @@ async function connectToWA() {
     printQRInTerminal: false,
     browser: ["Ubuntu", "Chrome", "20.0.04"],
     auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
-        },
-        markOnlineOnConnect: true,
-        generateHighQualityLinkPreview: true,
-        syncFullHistory: true,
+      creds: state.creds,
+      keys: makeCacheableSignalKeyStore(
+        state.keys,
+        pino({ level: "fatal" }).child({ level: "fatal" })
+      ),
+    },
+    markOnlineOnConnect: true,
+    generateHighQualityLinkPreview: true,
+    syncFullHistory: true,
     getMessage: async (key) => {
-            let jid = jidNormalizedUser(key.remoteJid);
-            let msg = await store.loadMessage(jid, key.id); 
-            return msg?.message || "";
-        },
-        msgRetryCounterCache
-    });
+      const jid = jidNormalizedUser(key.remoteJid);
+      const msg = await store.loadMessage(jid, key.id);
+      return msg?.message || "";
+    },
+    msgRetryCounterCache,
+  });
 
 
   if (pairingCode && !state.creds.registered) {
