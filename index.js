@@ -263,14 +263,25 @@ async function connectToWA() {
   const useMobile = process.argv.includes("--mobile");
 
   malvin = makeWASocket({
+    version,
     logger: P({ level: "silent" }),
     printQRInTerminal: false,
-    browser: Browsers.macOS("Firefox"),
-    syncFullHistory: true,
-    auth: state,
-    version,
-    getMessage: async () => ({}),
-  });
+    browser: ["Ubuntu", "Chrome", "20.0.04"],
+    auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
+        },
+        markOnlineOnConnect: true,
+        generateHighQualityLinkPreview: true,
+        syncFullHistory: true,
+    getMessage: async (key) => {
+            let jid = jidNormalizedUser(key.remoteJid);
+            let msg = await store.loadMessage(jid, key.id); 
+            return msg?.message || "";
+        },
+        msgRetryCounterCache
+    });
+
 
   if (pairingCode && !state.creds.registered) {
     await connectWithPairing(malvin, useMobile);
