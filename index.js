@@ -287,7 +287,7 @@ async function connectToWA() {
 
   malvin = makeWASocket({
     version,
-    logger: P({ level: "silent" }),
+    logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
     browser: ["Ubuntu", "Chrome", "20.0.04"],
     auth: {
