@@ -84,7 +84,7 @@ const path = require("path");
 const { getPrefix } = require("./lib/prefix");
 const readline = require("readline");
 
-const ownerNumber = ["218942841878"];
+const ownerNumber = ["254104260236"];
 
 const ENV_PATH = path.join(__dirname, ".env");
 function ensureEnv(envPath) {
@@ -93,7 +93,7 @@ function ensureEnv(envPath) {
       "SESSION_ID=",
       "PAIRING_CODE=false",
       "MODE=public",
-      "OWNER_NUMBER=254740007567",
+      "OWNER_NUMBER=254104260236",
       "ANTI_CALL=false",
       "READ_MESSAGE=false",
       "AUTO_STATUS_SEEN=false",
@@ -262,26 +262,13 @@ async function connectToWA() {
   const useMobile = process.argv.includes("--mobile");
 
   malvin = makeWASocket({
-    version,
-    logger: pino({ level: 'silent' }),
+    logger: P({ level: "silent" }),
     printQRInTerminal: false,
     browser: ["Ubuntu", "Chrome", "20.0.04"],
-    auth: {
-      creds: state.creds,
-      keys: makeCacheableSignalKeyStore(
-        state.keys,
-        pino({ level: "fatal" }).child({ level: "fatal" })
-      ),
-    },
-    markOnlineOnConnect: true,
-    generateHighQualityLinkPreview: true,
     syncFullHistory: true,
-    getMessage: async (key) => {
-      const jid = jidNormalizedUser(key.remoteJid);
-      const msg = await store.loadMessage(jid, key.id);
-      return msg?.message || "";
-    },
-    msgRetryCounterCache,
+    auth: state,
+    version,
+    getMessage: async () => ({}),
   });
 
   if (pairingCode && !state.creds.registered) {
