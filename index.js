@@ -189,7 +189,7 @@ async function loadSession() {
 
     sessionId = await new Promise((resolve) => {
       rl.question(
-        chalk.cyan("Enter your SESSION_ID (DAVE-X~xxxx): "),
+        chalk.cyan("Enter your SESSION_ID (DAVE-AI:~xxxx): "),
         (answer) => {
           rl.close();
           resolve(answer.trim());
@@ -204,14 +204,14 @@ async function loadSession() {
     process.exit(1);
   }
 
-  if (!sessionId.startsWith("DAVE-X~")) {
+  if (!sessionId.startsWith("DAVE-AI:~")) {
     console.error(chalk.red("Invalid SESSION_ID format. Must start with DAVE-X~"));
     process.exit(1);
   }
 
   try {
     console.log(chalk.yellow("Decoding session..."));
-    const decoded = Buffer.from(sessionId.replace("DAVE-X~", ""), "base64");
+    const decoded = Buffer.from(sessionId.replace("DAVE-AI:~", ""), "base64");
     fsSync.writeFileSync(credsPath, decoded);
     console.log(chalk.green("Session loaded successfully"));
     return JSON.parse(decoded.toString());
@@ -239,7 +239,7 @@ async function connectWithPairing(malvin, useMobile) {
   });
   const question = (text) => new Promise((resolve) => rl.question(text, resolve));
 
-  let number = await question(chalk.cyan("Enter your number (e.g., +254740007567): "));
+  let number = await question(chalk.cyan("Enter your number (e.g., +254104260236): "));
   number = number.replace(/[^0-9]/g, "");
   rl.close();
 
