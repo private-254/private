@@ -196,7 +196,7 @@ async function loadSession() {
 
   try {
     console.log(chalk.yellow("[ ⏳ ] Decoding session..."));
-    const decoded = Buffer.from(sessionId.replace("Xguru~", ""), "base64");
+    const decoded = Buffer.from(sessionId.replace("DAVE-AI:~", ""), "base64");
     fsSync.writeFileSync(credsPath, decoded);
     console.log(chalk.green("[ ✅ ] Session loaded successfully"));
     return JSON.parse(decoded.toString());
