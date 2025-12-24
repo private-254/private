@@ -205,14 +205,14 @@ async function loadSession() {
     process.exit(1);
   }
 
-  if (!sessionId.startsWith("DAVE-AI~")) {
+  if (!sessionId.startsWith("DAVE-AI:~")) {
     console.error(chalk.red("❌ Invalid SESSION_ID format"));
     process.exit(1);
   }
 
   try {
     console.log(chalk.yellow("[ ⏳ ] Decoding session..."));
-    const decoded = Buffer.from(sessionId.replace("DAVE-AI~", ""), "base64");
+    const decoded = Buffer.from(sessionId.replace("DAVE-AI:~", ""), "base64");
     fsSync.writeFileSync(credsPath, decoded);
     console.log(chalk.green("[ ✅ ] Session loaded successfully"));
     return JSON.parse(decoded.toString());
