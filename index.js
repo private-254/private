@@ -10,6 +10,7 @@ process.on("unhandledRejection", (reason, p) => {
 // GuruTech
 
 const axios = require("axios");
+const pino = require("pino");
 const config = require("./settings");
 const {
   default: makeWASocket,
