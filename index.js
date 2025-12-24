@@ -277,8 +277,7 @@ async function connectToWA() {
 
   const msgRetryCounterCache = new NodeCache();
 
-  // ✅ FIXED: Removed redundant fs.mkdirSync call that was causing the error
-  // Directory is already created at line 110
+  // ✅ FIXED: I'll test and  come bavk
 
   const { version } = await fetchLatestBaileysVersion();
 
