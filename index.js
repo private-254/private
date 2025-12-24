@@ -10,6 +10,7 @@ const axios = require("axios");
 const pino = require("pino");
 const NodeCache = require("node-cache");
 const config = require("./settings");
+const l = console.log;
 const {
   default: makeWASocket,
   useMultiFileAuthState,
