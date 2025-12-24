@@ -272,7 +272,8 @@ async function connectToWA() {
   const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, "./sessions"), {
     creds: creds || undefined,
   });
-
+  const msgRetryCounterCache = new NodeCache();
+  await fs.promises.mkdir(sessionDir, { recursive: true });
   const { version } = await fetchLatestBaileysVersion();
 
   const pairingCode = config.PAIRING_CODE === "true" || process.argv.includes("--pairing-code");
