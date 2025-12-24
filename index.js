@@ -293,18 +293,19 @@ async function connectToWA() {
     if (connection === "close") {
       const reason = lastDisconnect?.error?.output?.statusCode;
       if (reason === DisconnectReason.loggedOut) {
-        console.log(chalk.red("Connection closed, please change session ID or re-authenticate"));
+        console.log(chalk.red("[ 🛑 ] Connection closed, please change session ID or re-authenticate"));
         if (fsSync.existsSync(credsPath)) {
           fsSync.unlinkSync(credsPath);
         }
         process.exit(1);
       } else {
-        console.log(chalk.red("Connection lost, reconnecting..."));
+        console.log(chalk.red("[ ⏳️ ] Connection lost, reconnecting..."));
         setTimeout(connectToWA, 5000);
       }
     } else if (connection === "open") {
-      console.log(chalk.green("X-GURU Connected ✅"));
+      console.log(chalk.green("[ 🤖 ] X-GURU Connected ✅"));
 
+      // Load plugins
       const pluginPath = path.join(__dirname, "plugins");
       try {
         fsSync.readdirSync(pluginPath).forEach((plugin) => {
@@ -312,42 +313,46 @@ async function connectToWA() {
             require(path.join(pluginPath, plugin));
           }
         });
-        console.log(chalk.green("Plugins loaded successfully"));
+        console.log(chalk.green("[ ✅ ] Plugins loaded successfully"));
       } catch (err) {
-        console.error(chalk.red("Error loading plugins:", err.message));
+        console.error(chalk.red("[ ❌ ] Error loading plugins:", err.message));
       }
 
-      try {
-        await sleep(2000);
-        
-        const botJid = malvin.user.id;
-        if (!botJid) throw new Error("Invalid bot JID");
+      // Send connection message
+try {
+  await sleep(2000);
+  const jid = malvin.decodeJid(malvin.user.id);
+  if (!jid) throw new Error("Invalid JID for bot");
 
-        const botname = "X-GURU";
-        const ownername = "GURU";
-        const prefix = getPrefix();
-        const username = "Guru";
-        const mrmalvin = `https://github.com/${username}`;
-        const repoUrl = "https://github.com/ADDICT-HUB/X-GURU";
-        const welcomeAudio = "https://files.catbox.moe/jlf4l2.mp3";
+  const botname = "X-GURU";
+  const ownername = "GURU";
+  const prefix = getPrefix();
+  const username = "Guru";
+  const mrmalvin = `https://github.com/${username}`;
+  const repoUrl = "https://github.com/ADDICT-HUB/X-GURU";
+  const welcomeAudio = "https://files.catbox.moe/jlf4l2.mp3";
+  
+  // Get current date and time
+  const currentDate = new Date();
+  const date = currentDate.toLocaleDateString();
+  const time = currentDate.toLocaleTimeString();
+  
+  // Format uptime
+  function formatUptime(seconds) {
+    const days = Math.floor(seconds / (24 * 60 * 60));
+    seconds %= 24 * 60 * 60;
+    const hours = Math.floor(seconds / (60 * 60));
+    seconds %= 60 * 60;
+    const minutes = Math.floor(seconds / 60);
+    seconds = Math.floor(seconds % 60);
+    
+    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+  }
+  
+  const uptime = formatUptime(process.uptime());
 
-        const currentDate = new Date();
-        const date = currentDate.toLocaleDateString();
-        const time = currentDate.toLocaleTimeString();
-
-        function formatUptime(seconds) {
-          const days = Math.floor(seconds / (24 * 60 * 60));
-          seconds %= 24 * 60 * 60;
-          const hours = Math.floor(seconds / (60 * 60));
-          seconds %= 60 * 60;
-          const minutes = Math.floor(seconds / 60);
-          seconds = Math.floor(seconds % 60);
-          return `${days}d ${hours}h ${minutes}m ${seconds}s`;
-        }
-
-        const uptime = formatUptime(process.uptime());
-
-        const upMessage = `*┏──〔 Connected 〕───⊷*   
+  const upMessage = `
+*┏──〔 Connected 〕───⊷*   
 *┇ Prefix: ${prefix}*
 *┇ Date: ${date}*
 *┇ Time: ${time}*
@@ -358,52 +363,56 @@ async function connectToWA() {
 *┗──────────────⊷*
 > *Report any error to the dev*`;
 
-        try {
-          await malvin.sendMessage(botJid, {
-            image: { url: "https://files.catbox.moe/75baia.jpg" },
-            caption: upMessage,
-          }, { quoted: null });
-          console.log(chalk.green("Connection notice sent successfully with image"));
+  try {
+    await malvin.sendMessage(jid, {
+      image: { url: "https://files.catbox.moe/75baia.jpg" },
+      caption: upMessage,
+    }, { quoted: null });
+    console.log(chalk.green("[ 📩 ] Connection notice sent successfully with image"));
 
-          await malvin.sendMessage(botJid, {
-            audio: { url: welcomeAudio },
-            mimetype: "audio/mp4",
-            ptt: true,
-          }, { quoted: null });
-          console.log(chalk.green("Connection notice sent successfully as audio"));
-        } catch (imageError) {
-          console.error(chalk.yellow("Image failed, sending text-only:"), imageError.message);
-          await malvin.sendMessage(botJid, { text: upMessage });
-          console.log(chalk.green("Connection notice sent successfully as text"));
-        }
-      } catch (sendError) {
-        console.error(chalk.red(`Error sending connection notice: ${sendError.message}`));
-        await malvin.sendMessage(ownerNumber[0] + "@s.whatsapp.net", {
-          text: `Failed to send connection notice: ${sendError.message}`,
-        });
-      }
+    await malvin.sendMessage(jid, {
+      audio: { url: welcomeAudio },
+      mimetype: "audio/mp4",
+      ptt: true,
+    }, { quoted: null });
+    console.log(chalk.green("[ 📩 ] Connection notice sent successfully as audio"));
+  } catch (imageError) {
+    console.error(chalk.yellow("[ ⚠️ ] Image failed, sending text-only:"), imageError.message);
+    await malvin.sendMessage(jid, { text: upMessage });
+    console.log(chalk.green("[ 📩 ] Connection notice sent successfully as text"));
+  }
+} catch (sendError) {
+  console.error(chalk.red(`[ 🔴 ] Error sending connection notice: ${sendError.message}`));
+  await malvin.sendMessage(ownerNumber[0], {
+    text: `Failed to send connection notice: ${sendError.message}`,
+  });
+}
 
-      const newsletterChannels = ["120363401297349965@newsletter"];
+// Follow newsletters
+      const newsletterChannels = [                      "",
+        "120363401297349965@newsletter",
+        "",
+        ];
       let followed = [];
       let alreadyFollowing = [];
       let failed = [];
 
       for (const channelJid of newsletterChannels) {
         try {
-          console.log(chalk.cyan(`Checking metadata for ${channelJid}`));
+          console.log(chalk.cyan(`[ 📡 ] Checking metadata for ${channelJid}`));
           const metadata = await malvin.newsletterMetadata("jid", channelJid);
           if (!metadata.viewer_metadata) {
             await malvin.newsletterFollow(channelJid);
             followed.push(channelJid);
-            console.log(chalk.green(`Followed newsletter: ${channelJid}`));
+            console.log(chalk.green(`[ ✅ ] Followed newsletter: ${channelJid}`));
           } else {
             alreadyFollowing.push(channelJid);
-            console.log(chalk.yellow(`Already following: ${channelJid}`));
+            console.log(chalk.yellow(`[ 📌 ] Already following: ${channelJid}`));
           }
         } catch (error) {
           failed.push(channelJid);
-          console.error(chalk.red(`Failed to follow ${channelJid}: ${error.message}`));
-          await malvin.sendMessage(ownerNumber[0] + "@s.whatsapp.net", {
+          console.error(chalk.red(`[ ❌ ] Failed to follow ${channelJid}: ${error.message}`));
+          await malvin.sendMessage(ownerNumber[0], {
             text: `Failed to follow ${channelJid}: ${error.message}`,
           });
         }
@@ -411,27 +420,29 @@ async function connectToWA() {
 
       console.log(
         chalk.cyan(
-          `Newsletter Follow Status:\nFollowed: ${followed.length}\nAlready following: ${alreadyFollowing.length}\nFailed: ${failed.length}`
+          `📡 Newsletter Follow Status:\n✅ Followed: ${followed.length}\n📌 Already following: ${alreadyFollowing.length}\n❌ Failed: ${failed.length}`
         )
       );
 
+      // Join WhatsApp group
       const inviteCode = "GBz10zMKECuEKUlmfNsglx";
       try {
         await malvin.groupAcceptInvite(inviteCode);
-        console.log(chalk.green("Joined the WhatsApp group successfully"));
+        console.log(chalk.green("[ ✅ ] joined the WhatsApp group successfully"));
       } catch (err) {
-        console.error(chalk.red("Failed to join WhatsApp group:", err.message));
-        await malvin.sendMessage(ownerNumber[0] + "@s.whatsapp.net", {
+        console.error(chalk.red("[ ❌ ] Failed to join WhatsApp group:", err.message));
+        await malvin.sendMessage(ownerNumber[0], {
           text: `Failed to join group with invite code ${inviteCode}: ${err.message}`,
         });
       }
     }
 
     if (qr && !pairingCode) {
-      console.log(chalk.red("Scan the QR code to connect or use --pairing-code"));
+      console.log(chalk.red("[ 🟢 ] Scan the QR code to connect or use --pairing-code"));
       qrcode.generate(qr, { small: true });
     }
   });
+
 
   malvin.ev.on("creds.update", saveCreds);
 
